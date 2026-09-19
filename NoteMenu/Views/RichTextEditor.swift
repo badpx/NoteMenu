@@ -20,6 +20,68 @@ final class NoteEditorModel: ObservableObject {
         return text.isEmpty && images.isEmpty
     }
 
+    // MARK: - 草稿持久化（保存成功或删空内容时才清除）
+
+    /// 沙盒容器内 Application Support/NoteMenu/draft.rtfd。
+    private static let draftURL: URL = {
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return support.appendingPathComponent("NoteMenu/draft.rtfd")
+    }()
+
+    /// 草稿防抖写入任务：连续输入合并为一次落盘。
+    private var pendingPersist: DispatchWorkItem?
+
+    /// 立即将编辑内容（含图片附件）序列化为 RTFD 落盘；内容为空时删除草稿文件。
+    /// 会取消并覆盖任何待执行的防抖写入。
+    func persistDraft() {
+        pendingPersist?.cancel()
+        pendingPersist = nil
+        guard let storage = textView?.textStorage else { return }
+        let url = Self.draftURL
+        do {
+            if isEmpty {
+                try FileManager.default.removeItem(at: url)
+            } else {
+                guard let data = storage.rtfd(
+                    from: NSRange(location: 0, length: storage.length),
+                    documentAttributes: [:]
+                ) else { return }
+                try FileManager.default.createDirectory(
+                    at: url.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
+                try data.write(to: url, options: .atomic)
+            }
+        } catch {
+            // 草稿写入失败不打断输入，下次内容变化时会重试。
+        }
+    }
+
+    /// 防抖调度草稿持久化：输入停止 1 秒后才落盘，避免每次按键全量写文件。
+    func schedulePersistDraft() {
+        pendingPersist?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.persistDraft() }
+        pendingPersist = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: work)
+    }
+
+    /// 浮窗失焦或 App 退出前调用：若有未落盘的防抖写入则立即执行。
+    func flushPendingPersist() {
+        guard pendingPersist != nil else { return }
+        persistDraft()
+    }
+
+    /// 启动时恢复上次未保存的草稿。
+    func restoreDraft() {
+        guard let textView, let storage = textView.textStorage, storage.length == 0,
+              let data = try? Data(contentsOf: Self.draftURL),
+              let draft = try? NSAttributedString(rtfd: data, documentAttributes: nil),
+              draft.length > 0 else { return }
+        storage.setAttributedString(draft)
+        collectAttachments()
+        objectWillChange.send()
+    }
+
     // MARK: - 内容导出与清空
 
     func exportContent() -> NotesSaver.NoteContent? {
@@ -40,6 +102,7 @@ final class NoteEditorModel: ObservableObject {
             .foregroundColor: NSColor.textColor,
         ]
         images.removeAll()
+        persistDraft()
         objectWillChange.send()
     }
 
@@ -447,6 +510,7 @@ struct RichTextEditor: NSViewRepresentable {
 
         scrollView.documentView = textView
         model.textView = textView
+        model.restoreDraft()
         return scrollView
     }
 
@@ -458,9 +522,28 @@ struct RichTextEditor: NSViewRepresentable {
 
     final class Coordinator: NSObject, NSTextViewDelegate {
         private let model: NoteEditorModel
+        private var observers: [NSObjectProtocol] = []
 
         init(model: NoteEditorModel) {
             self.model = model
+            super.init()
+            // 浮窗失焦（含收起）与 App 退出时，立即落盘未写入的草稿。
+            observers.append(NotificationCenter.default.addObserver(
+                forName: NSWindow.didResignKeyNotification, object: nil, queue: .main
+            ) { [weak self] notification in
+                guard let self,
+                      (notification.object as? NSWindow) === self.model.textView?.window else { return }
+                self.model.flushPendingPersist()
+            })
+            observers.append(NotificationCenter.default.addObserver(
+                forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                self?.model.flushPendingPersist()
+            })
+        }
+
+        deinit {
+            observers.forEach(NotificationCenter.default.removeObserver)
         }
 
         func textDidChange(_ notification: Notification) {
@@ -472,6 +555,7 @@ struct RichTextEditor: NSViewRepresentable {
                 ]
             }
             model.collectAttachments()
+            model.schedulePersistDraft()
             model.objectWillChange.send()
         }
     }
