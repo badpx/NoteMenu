@@ -393,6 +393,16 @@ private final class EditorTextView: NSTextView {
         }
     }
 
+    // MARK: - 光标区域
+
+    /// 不调用 super：改用内缩的 I-beam 区域，把左右及底部边缘让给父视图的 resize 光标热区。
+    override func resetCursorRects() {
+        addCursorRect(
+            NSRect(x: 6, y: 6, width: bounds.width - 12, height: bounds.height - 6),
+            cursor: .iBeam
+        )
+    }
+
     // MARK: - 回车：列表延续 / 空列表项退出列表
 
     override func insertNewline(_ sender: Any?) {
