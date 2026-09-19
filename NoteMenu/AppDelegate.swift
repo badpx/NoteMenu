@@ -12,10 +12,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
+            let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .regular)
             button.image = NSImage(
                 systemSymbolName: "square.and.pencil",
                 accessibilityDescription: "NoteMenu"
-            )
+            )?.withSymbolConfiguration(config)
             button.action = #selector(statusItemClicked(_:))
             button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])

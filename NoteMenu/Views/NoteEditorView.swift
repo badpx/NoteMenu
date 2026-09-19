@@ -103,7 +103,7 @@ struct NoteEditorView: View {
             Button(action: send) {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 20))
-                    .foregroundStyle(Color(nsColor: .systemGray))
+                    .foregroundStyle(model.isEmpty ? Color(nsColor: .systemGray) : Color(red: 253 / 255, green: 212 / 255, blue: 51 / 255))
             }
             .buttonStyle(.borderless)
             .disabled(model.isEmpty)

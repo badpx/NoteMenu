@@ -253,10 +253,14 @@ private final class EditorTextView: NSTextView {
 
     private func drawPlaceholderIfNeeded() {
         guard string.isEmpty else { return }
-        let attributes: [NSAttributedString.Key: Any] = [
+        var attributes: [NSAttributedString.Key: Any] = [
             .font: font ?? NoteEditorModel.defaultFont,
             .foregroundColor: NSColor.placeholderTextColor,
         ]
+        // 占位文字跟随输入属性的段落样式（如空文档下开启列表的缩进），与光标起点保持一致。
+        if let style = typingAttributes[.paragraphStyle] as? NSParagraphStyle {
+            attributes[.paragraphStyle] = style
+        }
         let inset = textContainerInset
         let linePadding = textContainer?.lineFragmentPadding ?? 0
         let rect = NSRect(
@@ -460,6 +464,13 @@ struct RichTextEditor: NSViewRepresentable {
         }
 
         func textDidChange(_ notification: Notification) {
+            // 内容删空后复位输入属性，避免残留的列表缩进等段落样式把光标带离行首。
+            if let textView = notification.object as? NSTextView, textView.string.isEmpty {
+                textView.typingAttributes = [
+                    .font: NoteEditorModel.defaultFont,
+                    .foregroundColor: NSColor.textColor,
+                ]
+            }
             model.collectAttachments()
             model.objectWillChange.send()
         }
