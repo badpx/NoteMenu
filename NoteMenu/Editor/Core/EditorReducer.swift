@@ -35,7 +35,34 @@ enum EditorReducer {
             }
             resetInsertion(&state)
         case .indent(let change):
-            for i in indices {
+            // Work backwards so original paragraph offsets remain valid while code
+            // indentation changes text length. Keep the selection on its original text.
+            for i in indices.reversed() {
+                if state.document.paragraphs[i].kind.isCode {
+                    let paragraph = state.document.paragraphs[i]
+                    let removed: Int
+                    let inserted: Int
+                    if change > 0 {
+                        removed = 0
+                        inserted = 1
+                        state.document.paragraphs[i].runs = Paragraph.coalesced(
+                            [InlineRun(text: "\t", style: paragraph.runs.first?.style ?? .plain)] + paragraph.runs)
+                    } else {
+                        removed = paragraph.text.hasPrefix("\t") ? 1 : paragraph.text.prefix(4).prefix(while: { $0 == " " }).count
+                        inserted = 0
+                        guard removed > 0 else { continue }
+                        state.document.paragraphs[i].runs = paragraph.slice(NSRange(location: removed, length: paragraph.length - removed))
+                    }
+                    let start = map.starts[i]
+                    func adjusted(_ offset: Int) -> Int {
+                        if offset < start { return offset }
+                        return offset >= start + removed ? offset + inserted - removed : start + inserted
+                    }
+                    let selection = state.session.selection
+                    let lower = adjusted(selection.location)
+                    state.session.selection = NSRange(location: lower, length: adjusted(NSMaxRange(selection)) - lower)
+                    continue
+                }
                 guard let list = state.document.paragraphs[i].kind.list else { continue }
                 let depth = list.depth + change
                 state.document.paragraphs[i].kind = depth < 1 ? .body : .list(list.kind, min(ListResolver.maxDepth, depth))

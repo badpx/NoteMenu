@@ -65,7 +65,8 @@ Swift Package 测试 target 覆盖 Core、AppKit 集成和持久化；Xcode 工�
 | K05 | L1 空项连续 Tab 至 L8，再 Tab | 逐级增加至 L8 后保持 L8；最后一次不产生无意义 Undo |
 | K06 | 有文字列表与空列表执行同样 Tab 序列 | 类型/层级状态转换一致 |
 | K07 | 一级列表 Shift+Tab | 原地退出列表 |
-| K08 | 非列表 Tab/Shift+Tab | 无字符、无焦点跳转、无空历史项 |
+| K08 | 普通文本/标题 Tab、Shift+Tab | Tab 在光标处插入制表符或替换选区；Shift+Tab 无操作，不跳焦点 |
+| K08b | 代码块行中、空行、多行选区 Tab/Shift+Tab | 整行行首增减缩进，光标随原文本移动；撤销重做正确；选区结束于下一行首时不影响该行 |
 | K09 | 标题/代码行段首 Backspace | 首次转正文不删字；再次走默认删除 |
 | K10 | L3/L2/L1 段首 Backspace | 提升一层或退出，不删字 |
 | K11 | 列表视觉折行起点 Backspace | 普通删字，不能误判为段落起点 |

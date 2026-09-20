@@ -379,11 +379,14 @@ final class EditorAppKitTests: XCTestCase {
         XCTAssertTrue(bridge.document.paragraphs[0].runs.allSatisfy { !$0.style.marks.contains(.bold) })
     }
 
-    func testNoopTabDefaultForwardDeleteAndHeadingBackspace_K05_K08_K09() {
+    func testTextTabDefaultForwardDeleteAndHeadingBackspace_K05_K08_K09() {
         type("abc")
+        view.insertTab(nil)
+        XCTAssertEqual(view.string, "abc\t")
         let before = bridge.state
-        view.insertTab(nil); view.insertBacktab(nil)
+        view.insertBacktab(nil)
         XCTAssertEqual(bridge.state, before)
+        view.deleteBackward(nil)
         bridge.execute(.block(.heading(2))); bridge.select(NSRange(location: 0, length: 0))
         view.deleteForward(nil)
         XCTAssertEqual(view.string, "bc")
@@ -589,4 +592,56 @@ final class EditorAppKitTests: XCTestCase {
             XCTAssertEqual(bridge.document.paragraphs[1].text, "中")
         }
     }
+    func testCodeTabIndentsWholeLineAndKeepsCaretWithText() {
+        type("abc")
+        bridge.execute(.block(.codeLine))
+        bridge.select(NSRange(location: 2, length: 0))
+        view.insertTab(nil)
+        XCTAssertEqual(view.string, "\tabc")
+        XCTAssertEqual(view.selectedRange(), NSRange(location: 3, length: 0))
+        XCTAssertEqual(bridge.document.paragraphs[0].kind, .codeLine)
+        view.insertBacktab(nil)
+        XCTAssertEqual(view.string, "abc")
+        XCTAssertEqual(view.selectedRange(), NSRange(location: 2, length: 0))
+        view.undo(nil)
+        XCTAssertEqual(view.string, "\tabc")
+        view.redo(nil)
+        XCTAssertEqual(view.string, "abc")
+        assertProjection()
+    }
+
+    func testCodeMultilineTabSelectionAndSpaceOutdent() {
+        bridge.load(EditorDocument(paragraphs: [
+            Paragraph(kind: .codeLine, runs: [InlineRun(text: "one")]),
+            Paragraph(kind: .codeLine, runs: [InlineRun(text: "    two")]),
+            Paragraph(kind: .codeLine, runs: [InlineRun(text: "three")])]))
+        bridge.select(NSRange(location: 0, length: 12)) // End at the third line's start.
+        view.insertTab(nil)
+        XCTAssertEqual(view.string, "\tone\n\t    two\nthree")
+        view.insertBacktab(nil)
+        XCTAssertEqual(view.string, "one\n    two\nthree")
+        bridge.select(NSRange(location: 10, length: 0))
+        view.insertBacktab(nil)
+        XCTAssertEqual(view.string, "one\ntwo\nthree")
+        XCTAssertEqual(view.selectedRange().location, 6)
+        assertProjection()
+    }
+
+    func testEmptyCodeTabAndPlainTextSelectionReplacement() {
+        bridge.execute(.block(.codeLine))
+        view.insertTab(nil)
+        XCTAssertEqual(view.string, "\t")
+        view.insertBacktab(nil)
+        XCTAssertEqual(view.string, "")
+        let before = bridge.state
+        view.insertBacktab(nil)
+        XCTAssertEqual(bridge.state, before)
+        bridge.load(.plain("abcd"))
+        bridge.select(NSRange(location: 1, length: 2))
+        view.insertTab(nil)
+        XCTAssertEqual(view.string, "a\td")
+        XCTAssertEqual(view.selectedRange(), NSRange(location: 2, length: 0))
+        assertProjection()
+    }
+
 }

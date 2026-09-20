@@ -58,11 +58,21 @@ final class EditorTextView: NSTextView {
     }
 
     override func insertTab(_ sender: Any?) {
+        guard isEditable else { return }
         guard !hasMarkedText(), let bridge, !bridge.isComposing else { super.insertTab(sender); return }
-        bridge.execute(.indent(1), name: "增加层级")
+        let indices = bridge.positionMap.paragraphs(in: bridge.state.session.selection)
+        if indices.contains(where: {
+            let kind = bridge.document.paragraphs[$0].kind
+            return kind.list != nil || kind.isCode
+        }) {
+            bridge.execute(.indent(1), name: "增加缩进")
+        } else {
+            insertText("\t", replacementRange: selectedRange())
+        }
     }
 
     override func insertBacktab(_ sender: Any?) {
+        guard isEditable else { return }
         guard !hasMarkedText(), let bridge, !bridge.isComposing else { super.insertBacktab(sender); return }
         bridge.execute(.indent(-1), name: "减少层级")
     }
