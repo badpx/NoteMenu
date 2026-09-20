@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NoteEditorView: View {
-    @StateObject private var model = NoteEditorModel()
+    @StateObject private var core = EditorCore()
     @State private var isPinned: Bool
 
     private let resizeHandler: PanelResizeHandler
@@ -27,7 +27,7 @@ struct NoteEditorView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            RichTextEditor(model: model, onSend: send)
+            EditorView(core: core, onSend: send)
             Divider()
             toolbar
         }
@@ -103,9 +103,30 @@ struct NoteEditorView: View {
     private var toolbar: some View {
         HStack(spacing: 12) {
             Menu {
-                Button("加粗") { model.toggleBold() }
-                Button("斜体") { model.toggleItalic() }
-                Button("下划线") { model.toggleUnderline() }
+                Button("标题 1") { core.applyHeading(1) }
+                Button("标题 2") { core.applyHeading(2) }
+                Button("标题 3") { core.applyHeading(3) }
+                Button("正文") { core.applyHeading(0) }
+                Divider()
+                Button("代码块") { core.toggleCodeBlock() }
+            } label: {
+                Image(systemName: "number")
+                    .foregroundStyle(Color.secondary)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .frame(width: 30)
+            .help("标题 / 段落样式")
+
+            Menu {
+                Button("加粗") { core.toggleBold() }
+                    .keyboardShortcut("b", modifiers: .command)
+                Button("斜体") { core.toggleItalic() }
+                    .keyboardShortcut("i", modifiers: .command)
+                Button("下划线") { core.toggleUnderline() }
+                    .keyboardShortcut("u", modifiers: .command)
+                Button("删除线") { core.toggleStrikethrough() }
+                    .keyboardShortcut("x", modifiers: [.command, .shift])
             } label: {
                 Image(systemName: "textformat")
                     .foregroundStyle(Color.secondary)
@@ -116,7 +137,7 @@ struct NoteEditorView: View {
             .help("字体样式")
 
             Button {
-                model.toggleList(.disc)
+                core.toggleList(ordered: false)
             } label: {
                 Image(systemName: "list.bullet")
                     .foregroundStyle(Color.secondary)
@@ -125,7 +146,7 @@ struct NoteEditorView: View {
             .help("项目符号列表")
 
             Button {
-                model.toggleList(.decimal)
+                core.toggleList(ordered: true)
             } label: {
                 Image(systemName: "list.number")
                     .foregroundStyle(Color.secondary)
@@ -133,8 +154,8 @@ struct NoteEditorView: View {
             .buttonStyle(.borderless)
             .help("编号列表")
 
-            if !model.images.isEmpty {
-                Label("\(model.images.count)", systemImage: "photo")
+            if !core.images.isEmpty {
+                Label("\(core.images.count)", systemImage: "photo")
                     .font(.system(size: 11))
                     .foregroundStyle(Color.secondary)
                     .help("已收集的图片将在保存时作为附件添加到备忘录")
@@ -145,10 +166,10 @@ struct NoteEditorView: View {
             Button(action: send) {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 20))
-                    .foregroundStyle(model.isEmpty ? Color(nsColor: .systemGray) : Color(red: 253 / 255, green: 212 / 255, blue: 51 / 255))
+                    .foregroundStyle(core.isEmpty ? Color(nsColor: .systemGray) : Color(red: 253 / 255, green: 212 / 255, blue: 51 / 255))
             }
             .buttonStyle(.borderless)
-            .disabled(model.isEmpty)
+            .disabled(core.isEmpty)
             .keyboardShortcut(.return, modifiers: .command)
             .help("保存到备忘录（⌘↩）")
         }
@@ -157,10 +178,10 @@ struct NoteEditorView: View {
     }
 
     private func send() {
-        guard let content = model.exportContent() else { return }
+        guard let content = core.exportContent() else { return }
         switch NotesSaver.save(content) {
         case .success:
-            model.clear()
+            core.clear()
             onSaved()
         case .unauthorized(let message):
             showError(message: message, unauthorized: true)

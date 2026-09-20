@@ -36,7 +36,6 @@ enum NotesSaver {
         }
 
         let script = Self.makeScript(
-            title: content.title,
             bodyHTML: content.bodyHTML,
             imagePaths: imagePaths
         )
@@ -65,11 +64,13 @@ enum NotesSaver {
     }
 
     /// 组装写入备忘录的 AppleScript。
-    static func makeScript(title: String, bodyHTML: String, imagePaths: [String]) -> String {
+    /// 不传 name（实测 name 与 body 内 <h1> 会让标题显示两次）；
+    /// body 以 <h1> 开头时备忘录自动把首行作为标题。
+    static func makeScript(bodyHTML: String, imagePaths: [String]) -> String {
         var lines = [
             "tell application \"Notes\"",
             "    tell folder \"Notes\" of default account",
-            "        set newNote to make new note with properties {name:\"\(escape(title))\", body:\"\(escape(bodyHTML))\"}",
+            "        set newNote to make new note with properties {body:\"\(escape(bodyHTML))\"}",
         ]
         for path in imagePaths {
             lines.append("        make new attachment at newNote with data (POSIX file \"\(escape(path))\")")
