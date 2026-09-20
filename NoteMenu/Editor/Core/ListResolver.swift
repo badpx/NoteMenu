@@ -1,13 +1,16 @@
 import Foundation
 
 enum ListResolver {
+    static let maxDepth = 8
+    static let unorderedMarkers = ["●", "○", "◆", "◇", "■", "□", "▲", "△"]
+
     struct Item: Equatable {
         var index: Int
         var kind: ListKind
         var depth: Int
         var exportDepth: Int
         var number: Int
-        var marker: String { kind == .ordered ? "\(number)." : ["•", "◦", "▪"][depth - 1] }
+        var marker: String { kind == .ordered ? "\(number)." : ListResolver.unorderedMarkers[depth - 1] }
     }
     private struct Level { var depth: Int; var kind: ListKind; var number: Int }
 

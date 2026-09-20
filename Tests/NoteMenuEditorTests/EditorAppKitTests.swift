@@ -361,9 +361,9 @@ final class EditorAppKitTests: XCTestCase {
         XCTAssertEqual(bridge.document.paragraphs[0].kind, .heading(2))
         view.deleteBackward(nil)
         XCTAssertEqual(view.string, "bc"); XCTAssertEqual(bridge.document.paragraphs[0].kind, .body)
-        bridge.load(EditorDocument()); bridge.execute(.list(.ordered)); view.insertTab(nil); view.insertTab(nil); view.insertTab(nil)
+        bridge.load(EditorDocument()); bridge.execute(.list(.ordered)); for _ in 0..<8 { view.insertTab(nil) }
         view.undo(nil)
-        XCTAssertEqual(bridge.document.paragraphs[0].kind, .list(.ordered, 2))
+        XCTAssertEqual(bridge.document.paragraphs[0].kind, .list(.ordered, 7))
     }
 
     func testPasteOnlyTriggersOnFollowingTypedEvent_P10() {
@@ -466,6 +466,32 @@ final class EditorAppKitTests: XCTestCase {
             XCTAssertLessThanOrEqual(lastLine.maxY, visible.maxY + 1)
             XCTAssertGreaterThanOrEqual(lastLine.minY, visible.minY - 1)
         }
+    }
+
+    func testEightLevelListsAndClipboardRoundTrip() throws {
+        let expected = ["●", "○", "◆", "◇", "■", "□", "▲", "△"]
+        for kind in [ListKind.unordered, .ordered] {
+            let source = EditorDocument(paragraphs: (1...8).map {
+                Paragraph(kind: .list(kind, $0), runs: [InlineRun(text: "level \($0)")])
+            })
+            XCTAssertNoThrow(try source.validated())
+            bridge.load(source)
+            for i in 0..<8 {
+                XCTAssertEqual(bridge.listItems[i]?.marker, kind == .unordered ? expected[i] : "1.")
+                XCTAssertEqual(TextKitRenderer.paragraphStyle(source.paragraphs[i].kind).headIndent, CGFloat((i + 1) * 22))
+            }
+            let rich = TextKitRenderer.render(source, exchange: true)
+            let data = try XCTUnwrap(rich.rtfd(from: NSRange(location: 0, length: rich.length), documentAttributes: [:]))
+            let decoded = try XCTUnwrap(NSAttributedString(rtfd: data, documentAttributes: nil))
+            XCTAssertEqual(ClipboardCodec.importRich(decoded).paragraphs.map(\.kind), source.paragraphs.map(\.kind))
+            let tag = kind == .ordered ? "ol" : "ul"
+            XCTAssertEqual(HTMLExporter.export(source).bodyHTML.components(separatedBy: "<\(tag)>").count - 1, 8)
+        }
+        let style = NSMutableParagraphStyle()
+        style.textLists = (0..<10).map { _ in NSTextList(markerFormat: .disc, options: 0) }
+        let imported = ClipboardCodec.importRich(NSAttributedString(string: "deep", attributes: [.paragraphStyle: style]))
+        XCTAssertEqual(imported.paragraphs[0].kind, .list(.unordered, 8))
+        XCTAssertThrowsError(try EditorDocument(paragraphs: [Paragraph(kind: .list(.ordered, 9))]).validated())
     }
 
     func testHeadingPrefixIsConsumedBeforeTextAndComposition() {

@@ -1,8 +1,10 @@
 import SwiftUI
 
 struct NoteEditorView: View {
+    private static let barHeight: CGFloat = 36
     @StateObject private var model: NoteEditorModel
     @State private var isPinned: Bool
+    @State private var isSaveHovered = false
 
     private let resizeHandler: PanelResizeHandler
     private let onClose: () -> Void
@@ -111,7 +113,7 @@ struct NoteEditorView: View {
             .help("关闭")
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .frame(height: Self.barHeight)
     }
 
     private var toolbar: some View {
@@ -175,16 +177,34 @@ struct NoteEditorView: View {
             Spacer()
 
             Button(action: { model.bridge.requestSave() }) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(model.isEmpty && !model.isComposing ? Color(nsColor: .systemGray) : Color(red: 253 / 255, green: 212 / 255, blue: 51 / 255))
+                Image("SaveNote")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 16)
+                    .foregroundStyle(model.isEmpty && !model.isComposing
+                        ? Color(nsColor: .secondaryLabelColor)
+                        : Color(red: 92 / 255, green: 62 / 255, blue: 16 / 255))
+                    .frame(width: 40, height: 24)
+                    .background(saveBackgroundColor, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
             .buttonStyle(.borderless)
             .disabled(model.isEmpty && !model.isComposing)
-            .help("保存到备忘录（⌘↩）")
+            .onHover { isSaveHovered = $0 }
+            .animation(.easeOut(duration: 0.12), value: isSaveHovered)
+            .accessibilityLabel("存至备忘录")
+            .help("存至备忘录(⌘ + Enter)")
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .frame(height: Self.barHeight)
+    }
+
+    private var saveBackgroundColor: Color {
+        if model.isEmpty && !model.isComposing { return Color(nsColor: .quaternaryLabelColor) }
+        return isSaveHovered
+            ? Color(red: 225 / 255, green: 177 / 255, blue: 28 / 255)
+            : Color(red: 251 / 255, green: 211 / 255, blue: 46 / 255)
     }
 
     private func send() {

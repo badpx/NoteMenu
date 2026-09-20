@@ -86,9 +86,9 @@ final class EditorCoreTests: XCTestCase {
             XCTAssertEqual(state.document.paragraphs.map(\.kind), [.list(.ordered, level), .list(.ordered, level)])
             XCTAssertTrue(state.document.paragraphs[1].isEmpty)
         }
-        var state = fresh(); state.document.paragraphs[0].kind = .list(.unordered, 3)
+        var state = fresh(); state.document.paragraphs[0].kind = .list(.unordered, 8)
         let id = state.document.paragraphs[0].id
-        for expected in [BlockKind.list(.unordered, 2), .list(.unordered, 1), .body] {
+        for expected in (1...7).reversed().map({ BlockKind.list(.unordered, $0) }) + [.body] {
             EditorReducer.apply(.newline, to: &state)
             XCTAssertEqual(state.document.paragraphs.count, 1)
             XCTAssertEqual(state.document.paragraphs[0].kind, expected)
@@ -96,11 +96,11 @@ final class EditorCoreTests: XCTestCase {
         }
         for text in ["", "a"] {
             state = fresh(text); state.document.paragraphs[0].kind = .list(.ordered, 1)
-            for expected in [2, 3, 3] {
+            for expected in [2, 3, 4, 5, 6, 7, 8, 8] {
                 EditorReducer.apply(.indent(1), to: &state)
                 XCTAssertEqual(state.document.paragraphs[0].kind, .list(.ordered, expected))
             }
-            for expected in [BlockKind.list(.ordered, 2), .list(.ordered, 1), .body] {
+            for expected in (1...7).reversed().map({ BlockKind.list(.ordered, $0) }) + [.body] {
                 EditorReducer.apply(.indent(-1), to: &state)
                 XCTAssertEqual(state.document.paragraphs[0].kind, expected)
             }
@@ -137,7 +137,7 @@ final class EditorCoreTests: XCTestCase {
         XCTAssertEqual((0..<5).map { resolved[$0]!.number }, [1, 1, 2, 2, 1])
         let orphan = EditorDocument(paragraphs: [Paragraph(kind: .list(.unordered, 3))])
         XCTAssertEqual(ListResolver.resolve(orphan)[0]?.exportDepth, 1)
-        XCTAssertEqual(ListResolver.resolve(orphan)[0]?.marker, "▪")
+        XCTAssertEqual(ListResolver.resolve(orphan)[0]?.marker, "◆")
     }
 
     func testUnicodeMappingAndReplacements_M07_M10() throws {

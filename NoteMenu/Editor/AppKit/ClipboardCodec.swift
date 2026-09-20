@@ -80,7 +80,7 @@ enum ClipboardCodec {
             let range = string.paragraphRange(for: NSRange(location: location, length: 0))
             let attrs = attributed.attributes(at: location, effectiveRange: nil)
             let lists = (attrs[.paragraphStyle] as? NSParagraphStyle)?.textLists ?? []
-            let kind: BlockKind = lists.last.map { .list($0.markerFormat == .decimal ? .ordered : .unordered, min(3, lists.count)) } ?? .body
+            let kind: BlockKind = lists.last.map { .list($0.markerFormat == .decimal ? .ordered : .unordered, min(ListResolver.maxDepth, lists.count)) } ?? .body
             var paragraph = Paragraph(kind: kind)
             var contentLength = range.length
             while contentLength > 0, [UInt16(10), 13, 0x2029].contains(string.character(at: location + contentLength - 1)) { contentLength -= 1 }

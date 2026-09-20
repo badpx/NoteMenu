@@ -2,7 +2,7 @@
 
 日期：2026-09-20。对应 [格式规范](EditorSpec.md)、[设计方案](EditorDesign.md) 和 [99 项验收矩阵](EditorAcceptance.md)。
 
-后续五项交互反馈的修复与复验见 §8。旧产物误测后的重新验收见 §9；用户确认仅问题 5 可复现后，本轮只修复滚动，结果见 §10。之前各节保留历史记录，以 §10 为当前状态。
+后续五项交互反馈的修复与复验见 §8。旧产物误测后的重新验收见 §9；仅修复滚动见 §10，八级列表扩展见 §11。之前各节保留历史记录，以最新章节及 EditorSpec 为当前状态。
 
 ## 1. 结论
 
@@ -238,3 +238,13 @@ git diff ae05f1abec2efbb7a25aeb2cf9874e27621e5cdf^1 ae05f1abec2efbb7a25aeb2cf987
 日志：`build/editor-scroll-before.log`、`build/editor-scroll-tests.log`、`build/editor-scroll-debug.log`、`build/editor-scroll-release.log`。
 
 原 `ae05f1abec2efbb7a25aeb2cf9874e27621e5cdf` stash 完整保留，含旧的组合修复方案；§9 中的整包恢复命令仅用于历史参考，现在已有独立滚动修复，不应再整包叠加。
+
+## 11. 列表上限扩展到八级
+
+按用户提供的系统备忘录截图，将有序/无序列表上限统一改为 8。无序标记依次为 `● ○ ◆ ◇ ■ □ ▲ △`，使用较小的 8pt 形状字形匹配正文旁的项目符比例；编号仍用 14pt 十进制数字。缩进保持每级 22pt，第八级为 176pt，再按 Tab 不新增层级或撤销项。
+
+最大深度和符号表集中在 ListResolver。模型验证、Tab、富文本导入及标准 RTFD 交换同步更新；外部超过八层的列表导入时限制为八层。已有三级草稿仍兼容，新八级草稿沿用原版本格式，无须迁移。HTML 仍使用合法的嵌套 ul/ol，不扩展既定白名单。
+
+新增八级列表集成测试，验证所有标记、每级缩进、两类列表 RTFD 往返、八层 HTML、外部十级导入限制以及非法第九级模型拒绝。更新上限 Tab / Undo、八级空项逐层 Enter 退出、八级空草稿恢复测试。全量 48 项测试通过，Debug 构建成功。
+
+GUI 已逐级创建 L1–L8 列表，观察到八种对应形状，第八级再按 Tab 保持原层级。验收产物：`build/editor-eight-levels/Build/Products/Debug/NoteMenu.app`；日志：`build/editor-eight-tests.log`、`build/editor-eight-build.log`。

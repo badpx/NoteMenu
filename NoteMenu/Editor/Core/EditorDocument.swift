@@ -37,7 +37,7 @@ enum BlockKind: Codable, Equatable {
     var isValid: Bool {
         switch self {
         case .heading(let level): return (1...3).contains(level)
-        case .list(_, let depth): return (1...3).contains(depth)
+        case .list(_, let depth): return (1...ListResolver.maxDepth).contains(depth)
         default: return true
         }
     }

@@ -19,5 +19,8 @@ cat > "$bundle/Contents/Info.plist" <<'PLIST'
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
+mkdir -p "$bundle/Contents/Resources"
+xcrun actool NoteMenu/Resources/Assets.xcassets --compile "$bundle/Contents/Resources" \
+    --platform macosx --minimum-deployment-target 13.0 --target-device mac
 codesign --force --sign - "$bundle"
 echo "$bundle"

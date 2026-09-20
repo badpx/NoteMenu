@@ -40,7 +40,7 @@ enum TextKitRenderer {
             style.firstLineHeadIndent = style.headIndent
             if includeNativeLists {
                 style.textLists = (1...list.depth).map { depth in
-                    NSTextList(markerFormat: list.kind == .ordered ? .decimal : [.disc, .circle, .square][depth - 1], options: 0)
+                    NSTextList(markerFormat: list.kind == .ordered ? .decimal : NSTextList.MarkerFormat(rawValue: ListResolver.unorderedMarkers[depth - 1]), options: 0)
                 }
             }
         }
@@ -152,7 +152,7 @@ enum TextKitRenderer {
 
     static func updateGeometry(_ document: EditorDocument, view: NSTextView) {
         let markers = ListResolver.resolve(document)
-        let maxWidth = markers.values.map { ($0.marker as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 14)]).width }.max() ?? 0
+        let maxWidth = markers.values.map { ($0.marker as NSString).size(withAttributes: [.font: ListMarkerRenderer.font(for: $0.kind)]).width }.max() ?? 0
         view.textContainerInset = NSSize(width: max(6, maxWidth + 4 - 22), height: 8)
         view.defaultParagraphStyle = paragraphStyle(document.paragraphs.last!.kind)
         if document.paragraphs.last!.isEmpty {

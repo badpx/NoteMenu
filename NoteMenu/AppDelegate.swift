@@ -12,11 +12,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
-            let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .regular)
-            button.image = NSImage(
-                systemSymbolName: "square.and.pencil",
-                accessibilityDescription: "NoteMenu"
-            )?.withSymbolConfiguration(config)
+            let icon = NSImage(named: "StatusIcon")
+            icon?.size = NSSize(width: 18, height: 18)
+            icon?.isTemplate = true
+            icon?.accessibilityDescription = "NoteMenu"
+            button.image = icon
             button.action = #selector(statusItemClicked(_:))
             button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -34,6 +34,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showContextMenu() {
         let menu = NSMenu()
+
+        let openNotesItem = NSMenuItem(
+            title: "打开备忘录",
+            action: #selector(openNotes(_:)),
+            keyEquivalent: ""
+        )
+        openNotesItem.target = self
+        menu.addItem(openNotesItem)
+        menu.addItem(.separator())
 
         let launchItem = NSMenuItem(
             title: "开机自启动",
@@ -57,6 +66,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = menu
         statusItem.button?.performClick(nil)
         statusItem.menu = nil
+    }
+
+    @objc private func openNotes(_ sender: NSMenuItem) {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Notes") else {
+            showOpenNotesError("未找到系统备忘录应用。")
+            return
+        }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.openApplication(at: url, configuration: configuration) { [weak self] _, error in
+            guard let error else { return }
+            DispatchQueue.main.async { self?.showOpenNotesError(error.localizedDescription) }
+        }
+    }
+
+    private func showOpenNotesError(_ message: String) {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "无法打开备忘录"
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "好")
+        alert.runModal()
     }
 
     @objc private func toggleLaunchAtLogin(_ sender: NSMenuItem) {

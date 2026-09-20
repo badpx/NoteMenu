@@ -2,6 +2,8 @@
 
 状态：已实施，2026-09-20。设计基于提交 `0655ecf` 的源码及 [EditorSpec.md](EditorSpec.md)；D1–D12 已写入规范 §11。实现说明见 §15，实测结果与尚未完成的真机验收见 [EditorAcceptanceResults.md](EditorAcceptanceResults.md)。下文保留设计时的背景和取舍，不代表全部验收已通过。
 
+> 后续变更：列表上限已按用户要求从 3 级扩展到 8 级，标记采用截图中的八种形状；当前行为以 EditorSpec 为准，下述原设计中的三级示例保留作历史背景。
+
 ## 1. 设计结论
 
 保留 SwiftUI 浮窗和原生 `NSTextView`，新增一个以段落为单位的语义文档模型，由统一的编辑事务更新它。TextKit 负责原生文字输入、字形排版、选区与附件显示；Markdown 标志只负责把刚刚提交的输入转换成编辑命令。

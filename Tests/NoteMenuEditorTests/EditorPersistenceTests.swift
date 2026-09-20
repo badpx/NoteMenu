@@ -12,7 +12,7 @@ final class EditorPersistenceTests: XCTestCase {
     func testEmptyFormattedDraftAndLatestGeneration_D01_D04() throws {
         let store = store()
         for i in 0..<20 { store.persist(.plain("obsolete \(i)")) }
-        let last = EditorDocument(paragraphs: [Paragraph(kind: .list(.ordered, 3))])
+        let last = EditorDocument(paragraphs: [Paragraph(kind: .list(.ordered, 8))])
         store.persist(last); store.flush()
         XCTAssertNil(store.lastError)
         let restored = try XCTUnwrap(store.restore())

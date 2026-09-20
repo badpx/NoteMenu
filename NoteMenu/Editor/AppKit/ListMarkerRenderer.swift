@@ -1,6 +1,9 @@
 import AppKit
 
 enum ListMarkerRenderer {
+    static func font(for kind: ListKind) -> NSFont {
+        .systemFont(ofSize: kind == .unordered ? 8 : 14)
+    }
     static func firstLine(_ index: Int, document: EditorDocument, map: PositionMap, view: NSTextView) -> (NSRect, CGFloat)? {
         guard let layout = view.layoutManager, let container = view.textContainer else { return nil }
         layout.ensureLayout(for: container)
@@ -32,9 +35,9 @@ enum ListMarkerRenderer {
         let last = map.position(at: min(NSMaxRange(charRange), map.length)).index
         for index in first...last {
             guard let item = items[index], let (rect, baseline) = firstLine(index, document: document, map: map, view: view), rect.intersects(visible) else { continue }
-            let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 14), .foregroundColor: NSColor.textColor]
+            let font = font(for: item.kind)
+            let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.textColor]
             let width = (item.marker as NSString).size(withAttributes: attrs).width
-            let font = NSFont.systemFont(ofSize: 14)
             let x = origin.x + container.lineFragmentPadding + CGFloat(item.depth) * 22 - 4 - width
             (item.marker as NSString).draw(at: NSPoint(x: x, y: origin.y + baseline - font.ascender), withAttributes: attrs)
         }

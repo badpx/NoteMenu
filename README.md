@@ -7,7 +7,8 @@ A lightweight macOS menu bar app for quickly jotting down notes and saving them 
 ## 功能
 
 - **菜单栏常驻**：点击状态栏图标展开/收起录入浮窗，无 Dock 图标打扰
-- **富文本录入**：支持三级标题、加粗、斜体、下划线、删除线、代码行，以及三级项目符号和编号列表；支持规范限定的 Markdown 输入快捷语法
+- **打开备忘录**：右键菜单栏图标，选择“打开备忘录”即可启动或切换到系统备忘录
+- **富文本录入**：支持三级标题、加粗、斜体、下划线、删除线、代码行，以及八级项目符号和编号列表；支持规范限定的 Markdown 输入快捷语法
 - **图片附件**：可直接粘贴或拖入图片，保存时作为备忘录附件
 - **一键保存**：保存成功后自动清空录入窗口，保留首段格式，标题由系统备忘录派生
 - **草稿恢复**：文字、空段落格式和原始图片自动保存，兼容导入旧 RTFD 草稿
@@ -36,6 +37,7 @@ open build/Build/Products/Debug/NoteMenu.app
 - 写入备忘录：通过 AppleScript（`make new note` / `make new attachment`）实现，正文直接从模型导出为规范白名单 HTML，图片按顺序追加为附件
 - 草稿：应用支持目录下的 `NoteMenu/draft-v1.json` 原子保存模型、输入格式和图片；旧 `draft.rtfd` 迁移源会保留，清空时移为备份以免旧稿恢复
 - 沙盒：开启 App Sandbox，通过 `com.apple.security.temporary-exception.apple-events` 获得控制备忘录的权限
+- 图标：原始 SVG 保存在 `assets/note.svg`，转换后的应用图标和 18pt 菜单栏图标位于 `Resources/Assets.xcassets`；菜单栏使用 template 模式适应深浅色背景
 
 ## 编辑器测试
 

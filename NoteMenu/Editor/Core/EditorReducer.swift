@@ -38,7 +38,7 @@ enum EditorReducer {
             for i in indices {
                 guard let list = state.document.paragraphs[i].kind.list else { continue }
                 let depth = list.depth + change
-                state.document.paragraphs[i].kind = depth < 1 ? .body : .list(list.kind, min(3, depth))
+                state.document.paragraphs[i].kind = depth < 1 ? .body : .list(list.kind, min(ListResolver.maxDepth, depth))
             }
         case .toggle(let mark):
             if selection.length == 0 {
