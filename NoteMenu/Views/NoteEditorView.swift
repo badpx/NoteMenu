@@ -27,7 +27,7 @@ struct NoteEditorView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            RichTextEditor(model: model)
+            RichTextEditor(model: model, onSend: send)
             Divider()
             toolbar
         }
@@ -149,7 +149,8 @@ struct NoteEditorView: View {
             }
             .buttonStyle(.borderless)
             .disabled(model.isEmpty)
-            .help("保存到备忘录")
+            .keyboardShortcut(.return, modifiers: .command)
+            .help("保存到备忘录（⌘↩）")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

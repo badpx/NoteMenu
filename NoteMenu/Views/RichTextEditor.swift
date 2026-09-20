@@ -8,7 +8,7 @@ private let listIndent: CGFloat = 22
 final class NoteEditorModel: ObservableObject {
     static let defaultFont = NSFont.systemFont(ofSize: 14)
 
-    fileprivate weak var textView: NSTextView?
+    weak var textView: NSTextView?
     /// 编辑区内抽出的图片附件（粘贴/拖入），保存时作为备忘录附件。
     private(set) var images: [NSImage] = []
 
@@ -108,7 +108,7 @@ final class NoteEditorModel: ObservableObject {
 
     // MARK: - 编辑区内图片收集
 
-    fileprivate func collectAttachments() {
+    func collectAttachments() {
         guard let storage = textView?.textStorage else { return }
         var collected: [NSImage] = []
         let fullRange = NSRange(location: 0, length: storage.length)
@@ -303,9 +303,21 @@ final class NoteEditorModel: ObservableObject {
 /// 带占位文字的富文本编辑框。
 /// NSTextView 不渲染 NSTextList 标记（TextEdit 的列表符号是自行绘制的），
 /// 因此这里手动绘制 •/N. 标记，并拦截图片粘贴以保证附件带有真实图像数据。
-private final class EditorTextView: NSTextView {
+final class EditorTextView: NSTextView {
     var placeholder: String = "现在的想法是…"
+    /// Cmd+Enter 触发，与发送按钮走同一条保存链路。
+    var onSave: (() -> Void)?
 
+    // MARK: - 快捷键：⌘↩ 保存
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let modifiers = event.modifierFlags.intersection([.command, .shift, .option, .control])
+        if modifiers == .command, event.keyCode == 36 || event.keyCode == 76 {
+            onSave?()
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
     // MARK: - 绘制（占位文字 + 列表标记）
 
     override func draw(_ dirtyRect: NSRect) {
@@ -453,18 +465,19 @@ private final class EditorTextView: NSTextView {
 
     /// 仅当剪贴板直接携带图像数据（截图/“拷贝图像”）或图像文件 URL（Finder 复制）时拦截；
     /// 其余（纯文本、富文本）走默认粘贴逻辑。
-    private static func imagesOnPasteboard(_ pasteboard: NSPasteboard) -> [NSImage] {
-        var images: [NSImage] = []
+    static func imagesOnPasteboard(_ pasteboard: NSPasteboard) -> [NSImage] {
+        // 同一张图常以多种表示（public.png + public.tiff）同时存在于剪贴板，
+        // 只取第一种可解码的表示，避免一次粘贴插入多张相同的图。
         for type in [NSPasteboard.PasteboardType.png, .tiff] {
             if let data = pasteboard.data(forType: type), let image = NSImage(data: data) {
-                images.append(image)
+                return [image]
             }
         }
-        if !images.isEmpty { return images }
 
         let options: [NSPasteboard.ReadingOptionKey: Any] = [
             .urlReadingFileURLsOnly: true,
         ]
+        var images: [NSImage] = []
         if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL] {
             for url in urls {
                 if let image = NSImage(contentsOf: url) {
@@ -490,6 +503,7 @@ private final class EditorTextView: NSTextView {
 
 struct RichTextEditor: NSViewRepresentable {
     @ObservedObject var model: NoteEditorModel
+    var onSend: () -> Void = {}
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
@@ -517,6 +531,7 @@ struct RichTextEditor: NSViewRepresentable {
             height: CGFloat.greatestFiniteMagnitude
         )
         textView.delegate = context.coordinator
+        textView.onSave = onSend
 
         scrollView.documentView = textView
         model.textView = textView
@@ -524,7 +539,9 @@ struct RichTextEditor: NSViewRepresentable {
         return scrollView
     }
 
-    func updateNSView(_ scrollView: NSScrollView, context: Context) {}
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        (scrollView.documentView as? EditorTextView)?.onSave = onSend
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(model: model)

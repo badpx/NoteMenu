@@ -35,20 +35,15 @@ enum NotesSaver {
             }
         }
 
-        var lines = [
-            "tell application \"Notes\"",
-            "    tell folder \"Notes\" of default account",
-            "        set newNote to make new note with properties {name:\"\(escape(content.title))\", body:\"\(escape(content.bodyHTML))\"}",
-        ]
-        for path in imagePaths {
-            lines.append("        make new attachment at newNote with data (POSIX file \"\(escape(path))\")")
-        }
-        lines.append("    end tell")
-        lines.append("end tell")
+        let script = Self.makeScript(
+            title: content.title,
+            bodyHTML: content.bodyHTML,
+            imagePaths: imagePaths
+        )
 
         var errorDictionary: NSDictionary?
-        let script = NSAppleScript(source: lines.joined(separator: "\n"))
-        script?.executeAndReturnError(&errorDictionary)
+        let appleScript = NSAppleScript(source: script)
+        appleScript?.executeAndReturnError(&errorDictionary)
 
         guard let errorDictionary else { return .success }
 
@@ -67,6 +62,32 @@ enum NotesSaver {
     private static func escape(_ text: String) -> String {
         text.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
+    }
+
+    /// 组装写入备忘录的 AppleScript。
+    static func makeScript(title: String, bodyHTML: String, imagePaths: [String]) -> String {
+        var lines = [
+            "tell application \"Notes\"",
+            "    tell folder \"Notes\" of default account",
+            "        set newNote to make new note with properties {name:\"\(escape(title))\", body:\"\(escape(bodyHTML))\"}",
+        ]
+        for path in imagePaths {
+            lines.append("        make new attachment at newNote with data (POSIX file \"\(escape(path))\")")
+        }
+        if !imagePaths.isEmpty {
+            // macOS 26 的 Notes 会把每次 make new attachment 复制成两张相邻同名附件；
+            // 临时文件名按 UUID 生成必然互不相同，故相邻同名即重复副本，从尾部往前删除。
+            // 在旧系统上无重复（相邻名称不同），此逻辑为空操作。
+            lines.append("        set attachmentNames to name of every attachment of newNote")
+            lines.append("        repeat with i from (count of attachmentNames) to 2 by -1")
+            lines.append("            if (item i of attachmentNames) = (item (i - 1) of attachmentNames) then")
+            lines.append("                delete attachment i of newNote")
+            lines.append("            end if")
+            lines.append("        end repeat")
+        }
+        lines.append("    end tell")
+        lines.append("end tell")
+        return lines.joined(separator: "\n")
     }
 
     /// NSImage → PNG 数据（粘贴入编辑区与写出临时文件共用）。
