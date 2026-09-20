@@ -98,8 +98,6 @@ final class EditorAppKitTests: XCTestCase {
         view.setMarkedText("**中**", selectedRange: NSRange(location: 5, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
         XCTAssertTrue(bridge.isComposing)
         XCTAssertEqual(bridge.document.text, "")
-        bridge.execute(.toggle(.bold))
-        XCTAssertTrue(bridge.state.session.insertionStyle.marks.isEmpty)
         view.insertText("**中**", replacementRange: view.markedRange())
         XCTAssertFalse(bridge.isComposing)
         XCTAssertEqual(bridge.document.text, "**中**")
@@ -127,6 +125,37 @@ final class EditorAppKitTests: XCTestCase {
             context: nil, characters: "a", charactersIgnoringModifiers: "a", isARepeat: false, keyCode: 0)!
         XCTAssertTrue(view.performKeyEquivalent(with: selectAll))
         XCTAssertEqual(bridge.state.session.selection, NSRange(location: 0, length: 1))
+    }
+
+    func testFormattingEndsCompositionAndKeepsText() {
+        for command: EditorCommand in [.block(.heading(2)), .list(.unordered), .list(.ordered)] {
+            bridge.load(EditorDocument())
+            view.setMarkedText("中文", selectedRange: NSRange(location: 2, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+            bridge.execute(command)
+            XCTAssertFalse(bridge.isComposing)
+            XCTAssertFalse(view.hasMarkedText())
+            XCTAssertEqual(bridge.document.text, "中文")
+            XCTAssertNotEqual(bridge.document.paragraphs[0].kind, .body)
+            view.undo(nil)
+            XCTAssertEqual(bridge.document.text, "中文")
+            XCTAssertEqual(bridge.document.paragraphs[0].kind, .body)
+            view.undo(nil)
+            XCTAssertEqual(bridge.document.text, "")
+        }
+    }
+
+    func testFormatShortcutDuringCompositionAndNextInput() {
+        view.setMarkedText("中文", selectedRange: NSRange(location: 2, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+        let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0, windowNumber: 0,
+            context: nil, characters: "b", charactersIgnoringModifiers: "b", isARepeat: false, keyCode: 11)!
+        XCTAssertTrue(view.performKeyEquivalent(with: event))
+        XCTAssertFalse(bridge.isComposing)
+        XCTAssertTrue(bridge.state.session.insertionStyle.marks.contains(.bold))
+        view.setMarkedText("继续", selectedRange: NSRange(location: 2, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+        view.insertText("继续", replacementRange: view.markedRange())
+        XCTAssertEqual(bridge.document.text, "中文继续")
+        XCTAssertTrue(bridge.document.paragraphs[0].runs.last!.style.marks.contains(.bold))
+        assertProjection()
     }
 
     func testPastePlainRichAndInternalClipboard_P01_P03_P09_P11() {
@@ -238,7 +267,7 @@ final class EditorAppKitTests: XCTestCase {
         view.setMarkedText("中文候选", selectedRange: NSRange(location: 4, length: 0), replacementRange: view.markedRange())
         XCTAssertEqual(bridge.presentationDocument.text, "中文候选")
         XCTAssertEqual(bridge.presentation.positions.length, 4)
-        for (chars, code) in [("\r", UInt16(36)), ("b", UInt16(11))] {
+        for (chars, code) in [("\r", UInt16(36)), ("z", UInt16(6))] {
             let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0, windowNumber: 0,
                 context: nil, characters: chars, charactersIgnoringModifiers: chars, isARepeat: false, keyCode: code)!
             XCTAssertFalse(view.performKeyEquivalent(with: event))

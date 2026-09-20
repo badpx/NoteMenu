@@ -247,7 +247,7 @@ Enter、Tab、Shift+Tab、Backspace 的分派先检查 IME，再检查选区，�
 - `replacementRange != NSNotFound` 本身不代表 IME；必须结合调用前的 composition 状态判断。
 - `setMarkedText` 期间不做 Markdown 转换、格式归一、列表修复、选区重定位或全文投影；模型保存上一次已提交状态，桥接层保存当前 composition 暂存变化。
 - 对规范要求跳过的 marked replacement 提交，提交文本但跳过触发；不在稍后的 `textDidChange` 补做触发。
-- 组合中 Enter/Tab/快捷键交回 IME/系统默认；自定义菜单 action 也需要同一个门禁，避免 SwiftUI 保存按钮快捷键绕过 `EditorTextView`。
+- 组合中 Enter/Tab 和非格式快捷键交回 IME/系统默认。按当前规范 §7，主动段落/字体/列表操作和格式快捷键先结束组合、保留当前显示文本并同步模型，再应用格式；工具栏保持可用。输入与格式各自登记撤销。
 - 组合结束后再同步受影响内容。取消组合不能留下字面标记被删、样式被改或草稿写入拼音中间态的结果。
 - 用户点击保存时如仍在组合，先走系统完成组合的路径，等待确认已提交后再取快照；不能直接 `unmarkText` 后假定模型已经更新。
 

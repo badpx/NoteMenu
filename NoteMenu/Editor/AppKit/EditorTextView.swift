@@ -93,10 +93,12 @@ final class EditorTextView: NSTextView {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard let bridge else { return super.performKeyEquivalent(with: event) }
         let flags = event.modifierFlags.intersection([.command, .shift, .control, .option])
-        // Return to the input system, without executing app formatting/save actions.
-        if bridge.isComposing { return false }
-        if flags == .command && [UInt16(36), 76].contains(event.keyCode) { bridge.requestSave(); return true }
         let key = event.charactersIgnoringModifiers?.lowercased()
+        let isFormatShortcut = (flags == .command && ["b", "i", "u"].contains(key ?? ""))
+            || (flags == [.command, .shift] && key == "x")
+        // Only explicit format shortcuts may end composition; candidate controls remain native.
+        if bridge.isComposing && !isFormatShortcut { return false }
+        if flags == .command && [UInt16(36), 76].contains(event.keyCode) { bridge.requestSave(); return true }
         if flags == .command {
             switch key {
             case "b": bridge.execute(.toggle(.bold), name: "粗体"); return true

@@ -131,7 +131,6 @@ struct NoteEditorView: View {
             .menuIndicator(.hidden)
             .frame(width: 22)
             .help("段落样式")
-            .disabled(model.isComposing)
             Menu {
                 Button(action: model.toggleBold) { Label("加粗", systemImage: model.isActive(.bold) ? "checkmark" : "bold") }
                 Button(action: model.toggleItalic) { Label("斜体", systemImage: model.isActive(.italic) ? "checkmark" : "italic") }
@@ -145,7 +144,6 @@ struct NoteEditorView: View {
             .menuIndicator(.hidden)
             .frame(width: 30)
             .help("字体样式")
-            .disabled(model.isComposing)
 
             Button {
                 model.toggleList(.unordered)
@@ -155,7 +153,6 @@ struct NoteEditorView: View {
             }
             .buttonStyle(.borderless)
             .help("项目符号列表")
-            .disabled(model.isComposing)
 
             Button {
                 model.toggleList(.ordered)
@@ -165,7 +162,6 @@ struct NoteEditorView: View {
             }
             .buttonStyle(.borderless)
             .help("编号列表")
-            .disabled(model.isComposing)
 
             if model.attachmentCount > 0 {
                 Label("\(model.attachmentCount)", systemImage: "photo")

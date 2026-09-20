@@ -88,6 +88,17 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
     }
 
     func execute(_ command: EditorCommand, name: String = "格式") {
+        if isComposing {
+            switch command {
+            case .block, .list, .toggle:
+                // Explicit formatting ends composition, preserving the displayed text.
+                // Reconcile the model before applying a command to its selection.
+                textView?.unmarkText()
+                textView?.inputContext?.discardMarkedText()
+                finishComposition()
+            default: return
+            }
+        }
         guard !isComposing else { return }
         var next = state
         guard EditorReducer.apply(command, to: &next) else { return }
