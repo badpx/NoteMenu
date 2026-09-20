@@ -278,6 +278,9 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
         action()
         nativeDepth -= 1
         compositionDidChange()
+        // Empty marked text can end/cancel composition without insertText or unmarkText.
+        // Reconcile after the native call so formatting and undo are enabled again.
+        finishComposition()
     }
 
     func finishComposition() {

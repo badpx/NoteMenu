@@ -507,6 +507,31 @@ final class EditorAppKitTests: XCTestCase {
         }
     }
 
+    func testEmptyMarkedTextDoesNotLeaveFormattingDisabled() {
+        view.setMarkedText("", selectedRange: NSRange(location: 0, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+        XCTAssertFalse(view.hasMarkedText())
+        XCTAssertFalse(bridge.isComposing)
+        XCTAssertTrue(bridge.history.manager.isUndoRegistrationEnabled)
+        bridge.execute(.toggle(.bold))
+        XCTAssertTrue(bridge.state.session.insertionStyle.marks.contains(.bold))
+    }
+
+    func testCancellingMarkedTextRestoresFormattingAndUndo() {
+        type("before")
+        let before = bridge.document
+        view.setMarkedText("ni", selectedRange: NSRange(location: 2, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+        XCTAssertTrue(bridge.isComposing)
+        view.setMarkedText("", selectedRange: NSRange(location: 0, length: 0), replacementRange: view.markedRange())
+        XCTAssertFalse(view.hasMarkedText())
+        XCTAssertFalse(bridge.isComposing)
+        XCTAssertEqual(bridge.document.paragraphs, before.paragraphs)
+        XCTAssertTrue(bridge.history.manager.isUndoRegistrationEnabled)
+        bridge.execute(.list(.ordered))
+        XCTAssertEqual(bridge.document.paragraphs[0].kind, .list(.ordered, 1))
+        view.undo(nil)
+        XCTAssertEqual(bridge.document.paragraphs, before.paragraphs)
+    }
+
     func testFirstMarkedCharacterNeverUsesStaleEmptyListPreview() {
         for prefix in ["- ", "1. "] {
             bridge.load(EditorDocument()); type(prefix + "first"); view.insertNewline(nil)

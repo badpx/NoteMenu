@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 
 enum ListMarkerRenderer {
     static func font(for kind: ListKind) -> NSFont {
@@ -39,7 +40,21 @@ enum ListMarkerRenderer {
             let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.textColor]
             let width = (item.marker as NSString).size(withAttributes: attrs).width
             let x = origin.x + container.lineFragmentPadding + CGFloat(item.depth) * 22 - 4 - width
-            (item.marker as NSString).draw(at: NSPoint(x: x, y: origin.y + baseline - font.ascender), withAttributes: attrs)
+            var y = origin.y + baseline - font.ascender
+            if item.kind == .unordered {
+                // Symbols use a smaller font, so sharing the text baseline makes them sit low.
+                // Center their actual outlines on the body's cap-height center; line fragment
+                // centers include leading/line spacing and would shift the symbols downward.
+                let line = CTLineCreateWithAttributedString(NSAttributedString(string: item.marker, attributes: attrs))
+                let bounds = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
+                let location = map.starts[index]
+                let bodyFont = location < (view.textStorage?.length ?? 0)
+                    ? view.textStorage?.attribute(.font, at: location, effectiveRange: nil) as? NSFont
+                    : nil
+                let textFont = bodyFont ?? TextKitRenderer.font(for: .plain, block: document.paragraphs[index].kind)
+                y += bounds.midY - textFont.capHeight / 2
+            }
+            (item.marker as NSString).draw(at: NSPoint(x: x, y: y), withAttributes: attrs)
         }
     }
 
