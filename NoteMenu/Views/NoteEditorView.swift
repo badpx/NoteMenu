@@ -5,6 +5,7 @@ struct NoteEditorView: View {
     @StateObject private var model: NoteEditorModel
     @State private var isPinned: Bool
     @State private var isSaveHovered = false
+    @State private var showSavedNotice = false
 
     private let resizeHandler: PanelResizeHandler
     private let onClose: () -> Void
@@ -94,7 +95,7 @@ struct NoteEditorView: View {
     private var header: some View {
         HStack {
             Text("NoteMenu")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
             if model.isSaving {
                 ProgressView()
                     .controlSize(.small)
@@ -103,26 +104,50 @@ struct NoteEditorView: View {
                     .accessibilityLabel("正在保存至备忘录")
             }
             Spacer()
-            Button {
-                isPinned.toggle()
-                onPinChanged(isPinned)
-            } label: {
-                Image(systemName: isPinned ? "pin.fill" : "pin")
-                    .font(.system(size: 11))
-                    .foregroundStyle(isPinned ? Color.accentColor : Color.secondary)
+            HStack(spacing: 8) {
+                Button {
+                    isPinned.toggle()
+                    onPinChanged(isPinned)
+                } label: {
+                    Image(systemName: isPinned ? "pin.fill" : "pin")
+                        .font(.system(size: 11))
+                        .frame(width: 22, height: 22)
+                        .foregroundStyle(isPinned ? Color.accentColor : Color.secondary)
+                }
+                .buttonStyle(.borderless)
+                .help(isPinned ? "取消置顶" : "置顶")
+                Button {
+                    showSavedNotice = false
+                    onClose()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11))
+                        .frame(width: 22, height: 22)
+                        .foregroundStyle(Color.secondary)
+                }
+                .buttonStyle(.borderless)
+                .help("关闭")
             }
-            .buttonStyle(.borderless)
-            .help(isPinned ? "取消置顶" : "置顶")
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color.secondary)
-            }
-            .buttonStyle(.borderless)
-            .help("关闭")
         }
         .padding(.horizontal, 12)
         .frame(height: Self.barHeight)
+        .overlay {
+            if showSavedNotice {
+                Text("已保存至系统备忘录")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(Color(nsColor: .tertiaryLabelColor))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .padding(.horizontal, 64)
+                    .allowsHitTesting(false)
+            }
+        }
+        .task(id: showSavedNotice) {
+            guard showSavedNotice else { return }
+            do { try await Task.sleep(nanoseconds: 1_200_000_000) }
+            catch { return }
+            showSavedNotice = false
+        }
     }
 
     private var toolbar: some View {
@@ -212,10 +237,13 @@ struct NoteEditorView: View {
     }
 
     private func send() {
+        guard !model.isSaving else { return }
+        showSavedNotice = false
         model.saveAsync(using: saveAction ?? NotesSaver.save) { result in
             switch result {
             case .success:
-                if model.isEmpty { onSaved() }
+                showSavedNotice = true
+                DispatchQueue.main.async { onSaved() }
             case .unauthorized(let message):
                 showError(message: message, unauthorized: true)
             case .failed(let message):

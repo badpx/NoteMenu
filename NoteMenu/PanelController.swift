@@ -226,7 +226,10 @@ final class PanelController {
             resizeHandler: resizeHandler,
             onClose: { [weak self] in self?.close() },
             onPinChanged: { [weak self] pinned in self?.isPinned = pinned },
-            onSaved: { [weak self] in self?.close() }
+            onSaved: { [weak self] in
+                guard let self, self.panel.isKeyWindow else { return }
+                self.focusEditor()
+            }
         )
         let hostingView = NSHostingView(rootView: contentView)
         let container = PanelContentView(frame: NSRect(origin: .zero, size: size))
