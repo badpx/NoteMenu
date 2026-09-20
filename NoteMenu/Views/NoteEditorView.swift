@@ -95,18 +95,27 @@ struct NoteEditorView: View {
         HStack {
             Text("NoteMenu")
                 .font(.system(size: 13, weight: .semibold))
+            if model.isSaving {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 14, height: 14)
+                    .help("正在保存至备忘录…")
+                    .accessibilityLabel("正在保存至备忘录")
+            }
             Spacer()
             Button {
                 isPinned.toggle()
                 onPinChanged(isPinned)
             } label: {
                 Image(systemName: isPinned ? "pin.fill" : "pin")
+                    .font(.system(size: 11))
                     .foregroundStyle(isPinned ? Color.accentColor : Color.secondary)
             }
             .buttonStyle(.borderless)
             .help(isPinned ? "取消置顶" : "置顶")
             Button(action: onClose) {
                 Image(systemName: "xmark")
+                    .font(.system(size: 11))
                     .foregroundStyle(Color.secondary)
             }
             .buttonStyle(.borderless)
@@ -117,11 +126,9 @@ struct NoteEditorView: View {
     }
 
     private var toolbar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             Menu {
-                blockButton("标题 1", kind: .heading(1))
-                blockButton("标题 2", kind: .heading(2))
-                blockButton("标题 3", kind: .heading(3))
+                blockButton("一级标题", kind: .heading(1))
                 blockButton("正文", kind: .body)
                 blockButton("代码块", kind: .codeLine)
             } label: {
@@ -167,7 +174,7 @@ struct NoteEditorView: View {
                 Label("\(model.attachmentCount)", systemImage: "photo")
                     .font(.system(size: 11))
                     .foregroundStyle(Color.secondary)
-                    .help("已收集的图片将在保存时作为附件添加到备忘录")
+                    .help("图片将按当前图文顺序保存到备忘录")
             }
 
             Spacer()
@@ -194,6 +201,7 @@ struct NoteEditorView: View {
         }
         .padding(.horizontal, 12)
         .frame(height: Self.barHeight)
+        .disabled(model.isSaving)
     }
 
     private var saveBackgroundColor: Color {
@@ -204,14 +212,15 @@ struct NoteEditorView: View {
     }
 
     private func send() {
-        guard let result = model.save(using: saveAction ?? NotesSaver.save) else { return }
-        switch result {
-        case .success:
-            onSaved()
-        case .unauthorized(let message):
-            showError(message: message, unauthorized: true)
-        case .failed(let message):
-            showError(message: message, unauthorized: false)
+        model.saveAsync(using: saveAction ?? NotesSaver.save) { result in
+            switch result {
+            case .success:
+                if model.isEmpty { onSaved() }
+            case .unauthorized(let message):
+                showError(message: message, unauthorized: true)
+            case .failed(let message):
+                showError(message: message, unauthorized: false)
+            }
         }
     }
 

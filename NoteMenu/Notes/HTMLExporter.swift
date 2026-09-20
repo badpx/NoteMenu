@@ -8,6 +8,13 @@ enum HTMLExporter {
     }
 
     static func export(_ document: EditorDocument) -> Result {
+        var imageIndex = 0
+        func renderRuns(_ runs: [InlineRun]) -> String {
+            HTMLExporter.renderRuns(runs) { _ in
+                defer { imageIndex += 1 }
+                return imagePlaceholder(imageIndex)
+            }
+        }
         let lists = ListResolver.resolve(document)
         var html = ""
         var index = 0
@@ -54,8 +61,11 @@ enum HTMLExporter {
         return Result(bodyHTML: html, assetIDs: document.assetOrder)
     }
 
-    static func renderRuns(_ runs: [InlineRun]) -> String {
-        runs.filter { $0.assetID == nil }.map { run in
+    static func imagePlaceholder(_ index: Int) -> String { "<!--NoteMenuImage:\(index)-->" }
+
+    static func renderRuns(_ runs: [InlineRun], image: (UUID) -> String = { _ in "" }) -> String {
+        runs.map { run in
+            if let id = run.assetID { return image(id) }
             var text = escape(run.text).replacingOccurrences(of: "\u{2028}", with: "<br>")
             if run.style.marks.contains(.code) || run.style.font?.monospaced == true {
                 text = "<tt style=\"font-family:Courier;font-size:12px\">\(text)</tt>"

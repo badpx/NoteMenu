@@ -20,7 +20,11 @@ struct RichTextEditor: NSViewRepresentable {
         return scroll
     }
 
-    func updateNSView(_ scroll: NSScrollView, context: Context) { model.bridge.onSave = onSend }
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        model.bridge.onSave = onSend
+        (scroll.documentView as? NSTextView)?.isEditable = !model.isSaving
+        (scroll.documentView as? NSTextView)?.isSelectable = !model.isSaving
+    }
     func makeCoordinator() -> Coordinator { Coordinator(model: model) }
 
     static func dismantleNSView(_ scroll: NSScrollView, coordinator: Coordinator) {

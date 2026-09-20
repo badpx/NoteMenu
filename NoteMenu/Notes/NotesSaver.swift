@@ -1,11 +1,11 @@
 import AppKit
 import Foundation
 
-/// 通过 AppleScript 把笔记写入系统「备忘录」。
-/// 正文为白名单 HTML，首行作标题；图片先落盘临时文件再以附件形式追加。
+/// Saves through Notes' AppleScript API without changing focus or using the clipboard.
 enum NotesSaver {
     struct NoteContent {
         let bodyHTML: String
+        /// One image per occurrence, in the same order as HTMLExporter.imagePlaceholder.
         let images: [NSImage]
     }
 
@@ -15,80 +15,172 @@ enum NotesSaver {
         case failed(String)
     }
 
+    struct ScriptError: LocalizedError {
+        let number: Int
+        let message: String
+        var errorDescription: String? { message }
+    }
+
+    static func runScript(_ source: String) throws -> String {
+        // NSAppleScript is main-thread-only. Background saves use the same script/API
+        // through the system interpreter, keeping UI drawing and input responsive.
+        if !Thread.isMainThread { return try runScriptProcess(source) }
+        guard let script = NSAppleScript(source: source) else {
+            throw ScriptError(number: 0, message: "无法创建备忘录保存脚本")
+        }
+        var error: NSDictionary?
+        let result = script.executeAndReturnError(&error)
+        if let error {
+            throw ScriptError(number: error[NSAppleScript.errorNumber] as? Int ?? 0,
+                              message: error[NSAppleScript.errorMessage] as? String ?? "备忘录保存失败")
+        }
+        return result.stringValue ?? ""
+    }
+
+    private static func runScriptProcess(_ source: String) throws -> String {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("NoteMenu-script-\(UUID().uuidString).applescript")
+        defer { try? FileManager.default.removeItem(at: file) }
+        try source.write(to: file, atomically: true, encoding: .utf8)
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = [file.path]
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = output
+        try process.run()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        let text = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard process.terminationStatus == 0 else {
+            throw ScriptError(number: text.contains("(-1743)") ? -1743 : 0, message: text)
+        }
+        return text
+    }
+
     static func save(_ content: NoteContent) -> SaveResult {
-        var imagePaths: [String] = []
-        defer {
-            for path in imagePaths { try? FileManager.default.removeItem(atPath: path) }
-        }
-        for image in content.images {
-            guard let png = pngData(for: image) else { return .failed("无法编码图片附件") }
-            let url = FileManager.default.temporaryDirectory
-                .appendingPathComponent("NoteMenu-\(UUID().uuidString).png")
-            do {
-                try png.write(to: url)
-                imagePaths.append(url.path)
-            } catch {
-                return .failed("图片写入临时文件失败：\(error.localizedDescription)")
+        save(content, execute: runScript)
+    }
+
+    /// Injection keeps automated failure tests out of the user's Notes database.
+    static func save(_ content: NoteContent, execute: (String) throws -> String,
+                     temporaryRoot: URL = FileManager.default.temporaryDirectory,
+                     verificationAttempts: Int = 20) -> SaveResult {
+        let fm = FileManager.default
+        let directory = temporaryRoot.appendingPathComponent("NoteMenu-\(UUID().uuidString)", isDirectory: true)
+        var preserveFiles = false
+        var noteID: String?
+        defer { if !preserveFiles { try? fm.removeItem(at: directory) } }
+        do {
+            var payloads: [Data] = []
+            var paths: [String] = []
+            if !content.images.isEmpty { try fm.createDirectory(at: directory, withIntermediateDirectories: true) }
+            for (i, image) in content.images.enumerated() {
+                guard let data = pngData(for: image) else { throw ScriptError(number: 0, message: "无法编码图片附件") }
+                let file = directory.appendingPathComponent("image-\(i).png")
+                try data.write(to: file, options: .atomic)
+                payloads.append(data)
+                paths.append(file.path)
             }
+            let html = try resolveHTML(content.bodyHTML, imagePaths: paths)
+            // Acquire the note ID before any attachment work so later failures can roll back.
+            // On an ambiguous create error, retain sources rather than assuming no note exists.
+            preserveFiles = !paths.isEmpty
+            let id = try execute(makeScript(bodyHTML: html.initial))
+            guard !id.isEmpty else { throw ScriptError(number: 0, message: "备忘录未返回笔记标识，请检查是否已创建笔记") }
+            noteID = id
+            if !paths.isEmpty {
+                _ = try execute(attachmentScript(noteID: id, html: html.final, paths: paths))
+                let exports = paths.indices.map { directory.appendingPathComponent("verify-\($0).png") }
+                var verified = false
+                let deadline = Date().addingTimeInterval(8)
+                for attempt in 0..<max(1, verificationAttempts) {
+                    for file in exports { try? fm.removeItem(at: file) }
+                    do {
+                        _ = try execute(verificationScript(noteID: id, exports: exports))
+                        verified = zip(exports, payloads).allSatisfy { (try? Data(contentsOf: $0.0)) == $0.1 }
+                    } catch let error as ScriptError where error.number == -1743 { throw error }
+                    catch { /* Import may still be finishing; retry within a bounded window. */ }
+                    if verified || Date() >= deadline { break }
+                    if attempt + 1 < verificationAttempts { Thread.sleep(forTimeInterval: 0.1) }
+                }
+                guard verified else { throw ScriptError(number: 0, message: "图片附件完整性校验失败，草稿已保留") }
+            }
+            preserveFiles = false
+            return .success
+        } catch {
+            var detail = error.localizedDescription
+            if let id = noteID {
+                do {
+                    _ = try execute("with timeout of 10 seconds\ntell application \"Notes\" to delete note id \(quote(id))\nend timeout")
+                    preserveFiles = false
+                } catch {
+                    detail += "；未能移除未完成笔记，请先检查备忘录，避免重试产生重复笔记"
+                }
+            }
+            if preserveFiles { detail += "；图片临时文件保留在 \(directory.path)" }
+            if let error = error as? ScriptError, error.number == -1743 { return .unauthorized(detail) }
+            return .failed(detail)
         }
-        let script = Self.makeScript(
-            bodyHTML: content.bodyHTML,
-            imagePaths: imagePaths
-        )
-
-        var errorDictionary: NSDictionary?
-        guard let appleScript = NSAppleScript(source: script) else { return .failed("无法创建备忘录保存脚本") }
-        appleScript.executeAndReturnError(&errorDictionary)
-
-        guard let errorDictionary else { return .success }
-
-        let number = (errorDictionary[NSAppleScript.errorNumber] as? Int) ?? 0
-        let message = (errorDictionary[NSAppleScript.errorMessage] as? String) ?? "未知错误（\(number)）"
-        // -1743: errAEEventNotPermitted，用户尚未授权本 App 控制备忘录。
-        if number == -1743
-            || message.localizedCaseInsensitiveContains("not authorized")
-            || message.contains("不允许") {
-            return .unauthorized(message)
-        }
-        return .failed(message)
     }
 
-    /// AppleScript 字符串字面量转义。
-    private static func escape(_ text: String) -> String {
-        text.replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
+    static func resolveHTML(_ html: String, imagePaths: [String]) throws -> (initial: String, final: String) {
+        var initial = html
+        var final = html
+        for (i, path) in imagePaths.enumerated() {
+            let marker = HTMLExporter.imagePlaceholder(i)
+            guard final.components(separatedBy: marker).count == 2 else {
+                throw ScriptError(number: 0, message: "图片与正文位置不一致，未保存")
+            }
+            initial = initial.replacingOccurrences(of: marker, with: "")
+            let url = HTMLExporter.escape(URL(fileURLWithPath: path).absoluteString).replacingOccurrences(of: "\"", with: "&quot;")
+            final = final.replacingOccurrences(of: marker, with: "<img src=\"\(url)\">")
+        }
+        guard !final.contains("<!--NoteMenuImage:") else {
+            throw ScriptError(number: 0, message: "图片数据缺失，未保存")
+        }
+        return (initial, final)
     }
 
-    /// 组装写入备忘录的 AppleScript。
-    static func makeScript(bodyHTML: String, imagePaths: [String]) -> String {
-        var lines = [
-            "tell application \"Notes\"",
-            "    tell folder \"Notes\" of default account",
-            "        set newNote to make new note with properties {body:\"\(escape(bodyHTML))\"}",
-        ]
-        for path in imagePaths {
-            lines.append("        make new attachment at newNote with data (POSIX file \"\(escape(path))\")")
+    static func quote(_ text: String) -> String {
+        "\"" + text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
+    }
+
+    /// Pure-text creation stays a single background AppleEvent transaction.
+    static func makeScript(bodyHTML: String) -> String {
+        """
+        with timeout of 30 seconds
+            tell application "Notes"
+                set newNote to make new note at default folder of default account with properties {body:\(quote(bodyHTML))}
+                return id of newNote
+            end tell
+        end timeout
+        """
+    }
+
+    static func attachmentScript(noteID: String, html: String, paths: [String]) -> String {
+        var lines = ["with timeout of 30 seconds", "tell application \"Notes\"", "set newNote to note id \(quote(noteID))"]
+        for path in paths {
+            lines.append("make new attachment at newNote with data (POSIX file \(quote(path)))")
         }
-        if !imagePaths.isEmpty {
-            // macOS 26 的 Notes 会把每次 make new attachment 复制成两张相邻同名附件；
-            // 临时文件名按 UUID 生成必然互不相同，故相邻同名即重复副本，从尾部往前删除。
-            // 在旧系统上无重复（相邻名称不同），此逻辑为空操作。
-            lines.append("        set attachmentNames to name of every attachment of newNote")
-            lines.append("        repeat with i from (count of attachmentNames) to 2 by -1")
-            lines.append("            if (item i of attachmentNames) = (item (i - 1) of attachmentNames) then")
-            lines.append("                delete attachment i of newNote")
-            lines.append("            end if")
-            lines.append("        end repeat")
-        }
-        lines.append("    end tell")
-        lines.append("end tell")
+        // Local files must first be handed to Notes via its attachment API. Replacing the
+        // body then imports exactly the requested occurrences; no name-based deduplication.
+        lines.append("set body of newNote to \(quote(html))")
+        lines += ["end tell", "end timeout"]
         return lines.joined(separator: "\n")
     }
 
-    /// NSImage → PNG 数据（粘贴入编辑区与写出临时文件共用）。
+    static func verificationScript(noteID: String, exports: [URL]) -> String {
+        var lines = ["with timeout of 5 seconds", "tell application \"Notes\"", "set n to note id \(quote(noteID))",
+                     "if (count of attachments of n) is not \(exports.count) then error \"图片数量不一致\""]
+        for (i, file) in exports.enumerated() {
+            lines.append("save attachment \(i + 1) of n in POSIX file \(quote(file.path))")
+        }
+        lines += ["end tell", "end timeout"]
+        return lines.joined(separator: "\n")
+    }
+
     static func pngData(for image: NSImage) -> Data? {
-        guard let tiff = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff) else { return nil }
+        guard let tiff = image.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff) else { return nil }
         return bitmap.representation(using: .png, properties: [:])
     }
 }

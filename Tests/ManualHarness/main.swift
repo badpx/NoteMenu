@@ -15,6 +15,11 @@ let resize = PanelResizeHandler(panel: panel)
 let view = NoteEditorView(isPinned: true, resizeHandler: resize, onClose: { model.flushPendingPersist(); app.terminate(nil) },
     onPinChanged: { _ in }, onSaved: { panel.title = "NoteMenu Editor Harness — saved locally" }, model: model,
     saveAction: { content in
+        // Optional local-only latency injection for observing the saving indicator.
+        if let value = try? String(contentsOf: root.appendingPathComponent("save-delay")),
+           let seconds = Double(value.trimmingCharacters(in: .whitespacesAndNewlines)) {
+            Thread.sleep(forTimeInterval: min(30, max(0, seconds)))
+        }
         do {
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             try content.bodyHTML.write(to: root.appendingPathComponent("export.html"), atomically: true, encoding: .utf8)

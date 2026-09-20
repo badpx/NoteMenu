@@ -174,7 +174,7 @@ final class EditorCoreTests: XCTestCase {
             Paragraph(kind: .list(.ordered, 1), runs: [InlineRun(text: "C")]),
         ])
         XCTAssertEqual(HTMLExporter.export(document).bodyHTML, "<ol><li>A<ul><li>B</li></ul></li><li>C</li></ol>")
-        let script = NotesSaver.makeScript(bodyHTML: "<div>\"\\</div>", imagePaths: [])
+        let script = NotesSaver.makeScript(bodyHTML: "<div>\"\\</div>")
         XCTAssertFalse(script.contains("name:"))
         XCTAssertTrue(script.contains("body:"))
         XCTAssertTrue(script.contains("\\\"\\\\"))

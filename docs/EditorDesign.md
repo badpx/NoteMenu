@@ -346,7 +346,7 @@ IME composition 作为完整输入会话处理：不把中间 marked text 注册
 
 ### 10.1 从模型生成备忘录 HTML
 
-规范开头已确定的系统限制直接作为约束接受：只使用支持的 HTML，图片最后作为附件，创建 note 时不传 `name`。不重新探测或扩展这些限制。
+当前保存规则按规范 §13：使用支持的 HTML，先通过附件 API 交付图片，再用本地文件 URL 原位混排，创建 note 时不传 `name`。独立验证见 InlineImageFeasibility.md。
 
 `HTMLExporter.export(document)` 返回正文 HTML 和按文档顺序排列的图片引用；首段与其他段落使用相同规则，不无条件改成 H1、不丢弃首段行内格式、不把手动计算的标题再注入正文。
 

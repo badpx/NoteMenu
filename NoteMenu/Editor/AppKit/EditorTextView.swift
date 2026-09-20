@@ -91,6 +91,7 @@ final class EditorTextView: NSTextView {
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard isEditable else { return false }
         guard let bridge else { return super.performKeyEquivalent(with: event) }
         let flags = event.modifierFlags.intersection([.command, .shift, .control, .option])
         let key = event.charactersIgnoringModifiers?.lowercased()

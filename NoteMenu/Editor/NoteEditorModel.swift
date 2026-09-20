@@ -7,6 +7,8 @@ final class NoteEditorModel: ObservableObject {
     private var pendingPersist: DispatchWorkItem?
     private var lastPersistRevision: UInt64?
     private(set) var recoveryMessage: String?
+    @Published private(set) var isSaving = false
+    private static let saveQueue = DispatchQueue(label: "NoteMenu.save", qos: .userInitiated)
 
     init(drafts: DraftStore = DraftStore(), restore: Bool = true) {
         self.bridge = AppKitInputBridge()
@@ -69,6 +71,21 @@ final class NoteEditorModel: ObservableObject {
         pendingPersist?.cancel(); pendingPersist = nil
         bridge.load(EditorDocument())
         persistDraft()
+    }
+
+    func saveAsync(using writer: @escaping (NotesSaver.NoteContent) -> NotesSaver.SaveResult = NotesSaver.save,
+                   completion: @escaping (NotesSaver.SaveResult) -> Void) {
+        guard !isSaving, let content = exportContent() else { return }
+        let revision = bridge.document.revision
+        isSaving = true
+        Self.saveQueue.async {
+            let result = autoreleasepool { writer(content) }
+            DispatchQueue.main.async {
+                if result == .success, self.bridge.document.revision == revision { self.clear() }
+                self.isSaving = false
+                completion(result)
+            }
+        }
     }
 
     func persistDraft() {
