@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NoteEditorView: View {
-    @StateObject private var model = NoteEditorModel()
+    @StateObject private var model: NoteEditorModel
     @State private var isPinned: Bool
 
     private let resizeHandler: PanelResizeHandler
@@ -14,14 +14,20 @@ struct NoteEditorView: View {
         resizeHandler: PanelResizeHandler,
         onClose: @escaping () -> Void,
         onPinChanged: @escaping (Bool) -> Void,
-        onSaved: @escaping () -> Void
+        onSaved: @escaping () -> Void,
+        model: NoteEditorModel = NoteEditorModel(),
+        saveAction: ((NotesSaver.NoteContent) -> NotesSaver.SaveResult)? = nil
     ) {
         _isPinned = State(initialValue: isPinned)
         self.resizeHandler = resizeHandler
         self.onClose = onClose
         self.onPinChanged = onPinChanged
         self.onSaved = onSaved
+        self._model = StateObject(wrappedValue: model)
+        self.saveAction = saveAction
     }
+
+    private let saveAction: ((NotesSaver.NoteContent) -> NotesSaver.SaveResult)?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -35,6 +41,14 @@ struct NoteEditorView: View {
         .background(Color(nsColor: .controlBackgroundColor))
         .overlay(resizeHandles)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .onAppear {
+            if let message = model.recoveryMessage {
+                let alert = NSAlert()
+                alert.messageText = "无法恢复草稿"
+                alert.informativeText = message
+                alert.runModal()
+            }
+        }
     }
 
     /// 边缘拖动热区：左、右、下边缘及两个底角。顶部吸附菜单栏，不支持调整。
@@ -103,9 +117,24 @@ struct NoteEditorView: View {
     private var toolbar: some View {
         HStack(spacing: 12) {
             Menu {
-                Button("加粗") { model.toggleBold() }
-                Button("斜体") { model.toggleItalic() }
-                Button("下划线") { model.toggleUnderline() }
+                blockButton("标题 1", kind: .heading(1))
+                blockButton("标题 2", kind: .heading(2))
+                blockButton("标题 3", kind: .heading(3))
+                blockButton("正文", kind: .body)
+                blockButton("代码块", kind: .codeLine)
+            } label: {
+                Text("#").font(.system(size: 16, weight: .semibold))
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .frame(width: 22)
+            .help("段落样式")
+            .disabled(model.isComposing)
+            Menu {
+                Button(action: model.toggleBold) { Label("加粗", systemImage: model.isActive(.bold) ? "checkmark" : "bold") }
+                Button(action: model.toggleItalic) { Label("斜体", systemImage: model.isActive(.italic) ? "checkmark" : "italic") }
+                Button(action: model.toggleUnderline) { Label("下划线", systemImage: model.isActive(.underline) ? "checkmark" : "underline") }
+                Button(action: model.toggleStrike) { Label("删除线", systemImage: model.isActive(.strike) ? "checkmark" : "strikethrough") }
             } label: {
                 Image(systemName: "textformat")
                     .foregroundStyle(Color.secondary)
@@ -114,27 +143,30 @@ struct NoteEditorView: View {
             .menuIndicator(.hidden)
             .frame(width: 30)
             .help("字体样式")
+            .disabled(model.isComposing)
 
             Button {
-                model.toggleList(.disc)
+                model.toggleList(.unordered)
             } label: {
                 Image(systemName: "list.bullet")
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(model.selectedBlock?.list?.kind == .unordered ? Color.accentColor : Color.secondary)
             }
             .buttonStyle(.borderless)
             .help("项目符号列表")
+            .disabled(model.isComposing)
 
             Button {
-                model.toggleList(.decimal)
+                model.toggleList(.ordered)
             } label: {
                 Image(systemName: "list.number")
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(model.selectedBlock?.list?.kind == .ordered ? Color.accentColor : Color.secondary)
             }
             .buttonStyle(.borderless)
             .help("编号列表")
+            .disabled(model.isComposing)
 
-            if !model.images.isEmpty {
-                Label("\(model.images.count)", systemImage: "photo")
+            if model.attachmentCount > 0 {
+                Label("\(model.attachmentCount)", systemImage: "photo")
                     .font(.system(size: 11))
                     .foregroundStyle(Color.secondary)
                     .help("已收集的图片将在保存时作为附件添加到备忘录")
@@ -142,14 +174,13 @@ struct NoteEditorView: View {
 
             Spacer()
 
-            Button(action: send) {
+            Button(action: { model.bridge.requestSave() }) {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 20))
-                    .foregroundStyle(model.isEmpty ? Color(nsColor: .systemGray) : Color(red: 253 / 255, green: 212 / 255, blue: 51 / 255))
+                    .foregroundStyle(model.isEmpty && !model.isComposing ? Color(nsColor: .systemGray) : Color(red: 253 / 255, green: 212 / 255, blue: 51 / 255))
             }
             .buttonStyle(.borderless)
-            .disabled(model.isEmpty)
-            .keyboardShortcut(.return, modifiers: .command)
+            .disabled(model.isEmpty && !model.isComposing)
             .help("保存到备忘录（⌘↩）")
         }
         .padding(.horizontal, 12)
@@ -157,15 +188,21 @@ struct NoteEditorView: View {
     }
 
     private func send() {
-        guard let content = model.exportContent() else { return }
-        switch NotesSaver.save(content) {
+        guard let result = model.save(using: saveAction ?? NotesSaver.save) else { return }
+        switch result {
         case .success:
-            model.clear()
             onSaved()
         case .unauthorized(let message):
             showError(message: message, unauthorized: true)
         case .failed(let message):
             showError(message: message, unauthorized: false)
+        }
+    }
+
+    private func blockButton(_ title: String, kind: BlockKind) -> some View {
+        Button { model.setBlock(kind) } label: {
+            if model.selectedBlock == kind { Label(title, systemImage: "checkmark") }
+            else { Text(title) }
         }
     }
 
@@ -191,4 +228,3 @@ struct NoteEditorView: View {
         }
     }
 }
-

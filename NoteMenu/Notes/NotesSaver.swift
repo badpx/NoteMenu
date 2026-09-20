@@ -5,12 +5,11 @@ import Foundation
 /// 正文为白名单 HTML，首行作标题；图片先落盘临时文件再以附件形式追加。
 enum NotesSaver {
     struct NoteContent {
-        let title: String
         let bodyHTML: String
         let images: [NSImage]
     }
 
-    enum SaveResult {
+    enum SaveResult: Equatable {
         case success
         case unauthorized(String)
         case failed(String)
@@ -18,8 +17,11 @@ enum NotesSaver {
 
     static func save(_ content: NoteContent) -> SaveResult {
         var imagePaths: [String] = []
+        defer {
+            for path in imagePaths { try? FileManager.default.removeItem(atPath: path) }
+        }
         for image in content.images {
-            guard let png = pngData(for: image) else { continue }
+            guard let png = pngData(for: image) else { return .failed("无法编码图片附件") }
             let url = FileManager.default.temporaryDirectory
                 .appendingPathComponent("NoteMenu-\(UUID().uuidString).png")
             do {
@@ -29,21 +31,14 @@ enum NotesSaver {
                 return .failed("图片写入临时文件失败：\(error.localizedDescription)")
             }
         }
-        defer {
-            for path in imagePaths {
-                try? FileManager.default.removeItem(atPath: path)
-            }
-        }
-
         let script = Self.makeScript(
-            title: content.title,
             bodyHTML: content.bodyHTML,
             imagePaths: imagePaths
         )
 
         var errorDictionary: NSDictionary?
-        let appleScript = NSAppleScript(source: script)
-        appleScript?.executeAndReturnError(&errorDictionary)
+        guard let appleScript = NSAppleScript(source: script) else { return .failed("无法创建备忘录保存脚本") }
+        appleScript.executeAndReturnError(&errorDictionary)
 
         guard let errorDictionary else { return .success }
 
@@ -65,11 +60,11 @@ enum NotesSaver {
     }
 
     /// 组装写入备忘录的 AppleScript。
-    static func makeScript(title: String, bodyHTML: String, imagePaths: [String]) -> String {
+    static func makeScript(bodyHTML: String, imagePaths: [String]) -> String {
         var lines = [
             "tell application \"Notes\"",
             "    tell folder \"Notes\" of default account",
-            "        set newNote to make new note with properties {name:\"\(escape(title))\", body:\"\(escape(bodyHTML))\"}",
+            "        set newNote to make new note with properties {body:\"\(escape(bodyHTML))\"}",
         ]
         for path in imagePaths {
             lines.append("        make new attachment at newNote with data (POSIX file \"\(escape(path))\")")
