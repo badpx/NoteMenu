@@ -8,6 +8,85 @@ extension NSAttributedString.Key {
 /// Supplies real layout geometry for the zero-length last paragraph, including when the caret is elsewhere.
 final class EditorLayoutManager: NSLayoutManager {
     var trailingKind: BlockKind = .body
+    private var backgroundDrawingOrigin: NSPoint?
+
+    override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: NSPoint) {
+        let previous = backgroundDrawingOrigin
+        backgroundDrawingOrigin = origin
+        defer { backgroundDrawingOrigin = previous }
+        super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
+    }
+
+    override func fillBackgroundRectArray(_ rectArray: UnsafePointer<NSRect>, count rectCount: Int,
+                                          forCharacterRange charRange: NSRange, color: NSColor) {
+        guard let drawingOrigin = backgroundDrawingOrigin,
+              let view = textContainers.first?.textView as? EditorTextView,
+              NSIntersectionRange(view.selectedRange(), charRange).length > 0,
+              color == view.selectedTextAttributes[.backgroundColor] as? NSColor
+                || color == NSColor.selectedTextBackgroundColor
+                || color == NSColor.unemphasizedSelectedTextBackgroundColor else {
+            super.fillBackgroundRectArray(rectArray, count: rectCount, forCharacterRange: charRange, color: color)
+            return
+        }
+        // Native background painting can bypass enumerateEnclosingRects. Apply the same
+        // geometry here as during tracking, including when drawing at a different origin.
+        let origin = view.textContainerOrigin
+        let rects = UnsafeBufferPointer(start: rectArray, count: rectCount).map {
+            $0.offsetBy(dx: origin.x - drawingOrigin.x, dy: origin.y - drawingOrigin.y)
+        }
+        let adjusted = selectionBackgroundRects(rects, characterRange: charRange, origin: origin).map {
+            $0.offsetBy(dx: drawingOrigin.x - origin.x, dy: drawingOrigin.y - origin.y)
+        }
+        adjusted.withUnsafeBufferPointer { buffer in
+            guard let base = buffer.baseAddress else { return }
+            super.fillBackgroundRectArray(base, count: buffer.count, forCharacterRange: charRange, color: color)
+        }
+    }
+
+    override func enumerateEnclosingRects(forGlyphRange glyphRange: NSRange,
+                                           withinSelectedGlyphRange selectedRange: NSRange,
+                                           in container: NSTextContainer,
+                                           using block: @escaping (NSRect, UnsafeMutablePointer<ObjCBool>) -> Void) {
+        guard selectedRange.location != NSNotFound, selectedRange.length > 0,
+              let view = container.textView as? EditorTextView else {
+            super.enumerateEnclosingRects(forGlyphRange: glyphRange, withinSelectedGlyphRange: selectedRange,
+                                           in: container, using: block)
+            return
+        }
+        // Supply the same geometry to selection tracking, invalidation and painting. Changing
+        // rectangles only at fill time leaves the upward extension clipped during mouse tracking.
+        let origin = view.textContainerOrigin
+        let characters = characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+        super.enumerateEnclosingRects(forGlyphRange: glyphRange, withinSelectedGlyphRange: selectedRange,
+                                       in: container) { rect, stop in
+            let adjusted = self.selectionBackgroundRects([rect.offsetBy(dx: origin.x, dy: origin.y)],
+                                                         characterRange: characters, origin: origin)
+            for rect in adjusted {
+                block(rect.offsetBy(dx: -origin.x, dy: -origin.y), stop)
+                if stop.pointee.boolValue { break }
+            }
+        }
+    }
+
+    /// Keep horizontal selection geometry native; center each visual line vertically.
+    func selectionBackgroundRects(_ rects: [NSRect], characterRange: NSRange, origin: NSPoint) -> [NSRect] {
+        guard let view = textContainers.first?.textView as? EditorTextView else { return rects }
+        let glyphs = glyphRange(forCharacterRange: characterRange, actualCharacterRange: nil)
+        var lines: [NSRect] = []
+        enumerateLineFragments(forGlyphRange: glyphs) { line, _, _, _, _ in
+            lines.append(line.offsetBy(dx: origin.x, dy: origin.y))
+        }
+        return rects.flatMap { rect -> [NSRect] in
+            // AppKit can combine adjacent full-width selections into one tall rectangle.
+            let fragments = lines.filter { min($0.maxY, rect.maxY) > max($0.minY, rect.minY) }
+            guard !fragments.isEmpty else { return [rect] }
+            return fragments.map { line in
+                let probe = NSRect(x: rect.minX, y: line.minY, width: rect.width, height: line.height)
+                let caret = view.insertionPointDrawingRect(probe)
+                return NSRect(x: rect.minX, y: caret.minY, width: rect.width, height: caret.height)
+            }
+        }
+    }
     override func ensureLayout(for container: NSTextContainer) {
         super.ensureLayout(for: container)
         // TextKit can leave an empty document's extra fragment invalid after a zero-length

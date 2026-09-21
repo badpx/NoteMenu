@@ -203,33 +203,41 @@ final class EditorTextView: NSTextView {
     }
 
     override func changeFont(_ sender: Any?) { /* All formatting goes through editor commands. */ }
-    func insertionPointDrawingRect(_ rect: NSRect) -> NSRect {
+    func insertionPointDrawingRect(_ rect: NSRect, characterIndex: Int? = nil) -> NSRect {
         var result = rect
         result.size.width = rect.width + 1
         guard let layout = layoutManager, let container = textContainer, let storage = textStorage else { return result }
         layout.ensureLayout(for: container)
         let font = typingAttributes[.font] as? NSFont ?? self.font ?? NSFont.systemFont(ofSize: 15)
-        let style = typingAttributes[.paragraphStyle] as? NSParagraphStyle ?? .default
-        result.size.height = layout.defaultLineHeight(for: font) + style.lineSpacing
+        result.size.height = layout.defaultLineHeight(for: font)
         var center = rect.minY + layout.defaultBaselineOffset(for: font) - (font.ascender + font.descender) / 2
         let point = NSPoint(x: rect.minX - textContainerOrigin.x,
                            y: rect.minY - textContainerOrigin.y + 1)
-        if !layout.extraLineFragmentRect.isEmpty, point.y >= layout.extraLineFragmentRect.minY {
+        let index = characterIndex.map { min(max(0, $0), storage.length) }
+        let usesExtraLine = !layout.extraLineFragmentRect.isEmpty
+            && (index.map { $0 == storage.length } ?? (point.y >= layout.extraLineFragmentRect.minY))
+        if usesExtraLine {
             center = textContainerOrigin.y + layout.extraLineFragmentRect.minY
                 + layout.defaultBaselineOffset(for: font) - (font.ascender + font.descender) / 2
         }
-        // Resolve the line from the supplied drawing rectangle, not the selection: AppKit may
-        // still be erasing the previous caret after the selection has moved.
-        if layout.numberOfGlyphs > 0, point.y < layout.extraLineFragmentRect.minY || layout.extraLineFragmentRect.isEmpty {
-            let glyph = layout.glyphIndex(for: point, in: container)
+        // A newly created EOF caret can arrive with a rectangle above its extra line fragment.
+        // For the active caret use its character position; selection backgrounds use geometry.
+        if layout.numberOfGlyphs > 0, !usesExtraLine {
+            let glyph = index.map { layout.glyphIndexForCharacter(at: min($0, storage.length - 1)) }
+                ?? layout.glyphIndex(for: point, in: container)
             if glyph < layout.numberOfGlyphs {
                 var lineRange = NSRange()
                 let line = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: &lineRange)
                 let character = layout.characterIndexForGlyph(at: glyph)
-                let lineFont = storage.attribute(.font, at: character, effectiveRange: nil) as? NSFont ?? font
-                let lineStyle = storage.attribute(.paragraphStyle, at: character, effectiveRange: nil) as? NSParagraphStyle ?? style
-                result.size.height = layout.defaultLineHeight(for: lineFont) + lineStyle.lineSpacing
                 let characters = layout.characterRange(forGlyphRange: lineRange, actualGlyphRange: nil)
+                var lineFont = storage.attribute(.font, at: character, effectiveRange: nil) as? NSFont ?? font
+                storage.enumerateAttribute(.font, in: characters) { value, _, _ in
+                    if let candidate = value as? NSFont,
+                       layout.defaultLineHeight(for: candidate) > layout.defaultLineHeight(for: lineFont) {
+                        lineFont = candidate
+                    }
+                }
+                result.size.height = layout.defaultLineHeight(for: lineFont)
                 let lineText = (storage.string as NSString).substring(with: characters)
                 // A newline-only glyph inherits spacing in its baseline offset. Use the same
                 // natural baseline as the first typed character so empty lines do not jump.
@@ -246,14 +254,14 @@ final class EditorTextView: NSTextView {
                 }
             }
         }
-        // TextKit omits trailing spacing from EOF fragments. Derive a consistent height
-        // from the line's font and line spacing, excluding paragraph padding.
+        // Use font metrics, not fragment height: extra spacing and EOF never change height.
         result.origin.y = center - result.height / 2
         return result
     }
 
     override func drawInsertionPoint(in rect: NSRect, color: NSColor, turnedOn flag: Bool) {
-        super.drawInsertionPoint(in: insertionPointDrawingRect(rect), color: insertionPointColor, turnedOn: flag)
+        let adjusted = insertionPointDrawingRect(rect, characterIndex: flag ? selectedRange().location : nil)
+        super.drawInsertionPoint(in: adjusted, color: insertionPointColor, turnedOn: flag)
     }
 
     override func setNeedsDisplay(_ invalidRect: NSRect) {

@@ -12,13 +12,15 @@ enum ListMarkerRenderer {
         if location == map.length && document.paragraphs[index].isEmpty {
             let rect = layout.extraLineFragmentRect
             let font = TextKitRenderer.font(for: .plain, block: document.paragraphs[index].kind)
-            return (rect, rect.minY + font.ascender)
+            return (rect, rect.minY + layout.defaultBaselineOffset(for: font))
         }
         guard location < (view.textStorage?.length ?? 0) else { return nil }
         let glyph = layout.glyphIndexForCharacter(at: location)
         guard glyph < layout.numberOfGlyphs else { return nil }
         let rect = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
-        let baseline = rect.maxY - layout.typesetter.baselineOffset(in: layout, glyphIndex: glyph)
+        let font = TextKitRenderer.font(for: .plain, block: document.paragraphs[index].kind)
+        let baseline = rect.minY + (document.paragraphs[index].isEmpty
+            ? layout.defaultBaselineOffset(for: font) : layout.location(forGlyphAt: glyph).y)
         return (rect, baseline)
     }
 

@@ -34,7 +34,7 @@ final class EditorAppKitTests: XCTestCase {
         XCTAssertEqual(actual, reference, file: file, line: line)
     }
 
-    func testCaretHeightUsesFontAndSpacingRatherThanNativeEOFRect() {
+    func testCaretHeightUsesFontWithoutLineSpacing() {
         for size: CGFloat in [14, 15, 22] {
             let font = NSFont.systemFont(ofSize: size)
             let paragraph = NSMutableParagraphStyle()
@@ -44,7 +44,7 @@ final class EditorAppKitTests: XCTestCase {
             for spacing: CGFloat in [0, 4, 10, 72] {
                 let rect = NSRect(x: 12, y: 20, width: 1, height: natural + spacing)
                 let caret = view.insertionPointDrawingRect(rect)
-                XCTAssertEqual(caret.height, natural + 6)
+                XCTAssertEqual(caret.height, natural)
                 XCTAssertEqual(caret.minX, rect.minX)
                 let center = view.textContainerOrigin.y + view.layoutManager!.extraLineFragmentRect.minY + view.layoutManager!.defaultBaselineOffset(for: font)
                     - (font.ascender + font.descender) / 2
@@ -69,10 +69,53 @@ final class EditorAppKitTests: XCTestCase {
                                   y: view.textContainerOrigin.y + line.minY, width: 1, height: line.height)
                 let caret = view.insertionPointDrawingRect(rect)
                 centers.append(caret.midY)
-                XCTAssertEqual(caret.height, layout.defaultLineHeight(for: view.typingAttributes[.font] as! NSFont) + 6)
+                XCTAssertEqual(caret.height, layout.defaultLineHeight(for: view.typingAttributes[.font] as! NSFont))
             }
             XCTAssertEqual(centers[0], centers[1], accuracy: 0.001)
             XCTAssertEqual(centers[0], centers[2], accuracy: 0.001)
+        }
+    }
+
+    func testCaretAndSelectionUseLargestFontOnVisualLine() throws {
+        bridge.load(.plain("small BIG\nnext"))
+        let storage = try XCTUnwrap(view.textStorage)
+        let large = NSFont.systemFont(ofSize: 22)
+        storage.addAttribute(.font, value: large, range: NSRange(location: 6, length: 3))
+        let layout = try XCTUnwrap(view.layoutManager as? EditorLayoutManager)
+        layout.ensureLayout(for: view.textContainer!)
+        let line = layout.lineFragmentRect(forGlyphAt: 0, effectiveRange: nil)
+        for index in [0, 7] {
+            let glyph = layout.glyphIndexForCharacter(at: index)
+            let rect = NSRect(x: view.textContainerOrigin.x + layout.location(forGlyphAt: glyph).x,
+                              y: view.textContainerOrigin.y + line.minY, width: 1, height: line.height)
+            XCTAssertEqual(view.insertionPointDrawingRect(rect).height, layout.defaultLineHeight(for: large))
+        }
+        let glyphs = layout.glyphRange(forCharacterRange: NSRange(location: 0, length: 3), actualCharacterRange: nil)
+        var heights: [CGFloat] = []
+        layout.enumerateEnclosingRects(forGlyphRange: glyphs, withinSelectedGlyphRange: glyphs, in: view.textContainer!) { rect, _ in heights.append(rect.height) }
+        XCTAssertEqual(heights, [layout.defaultLineHeight(for: large)])
+    }
+
+    func testEmptyListCaretUsesActualLineDespiteStaleNativeRectangle() throws {
+        for kind in [ListKind.ordered, .unordered] {
+            bridge.load(EditorDocument(paragraphs: [
+                Paragraph(kind: .list(kind, 1), runs: [InlineRun(text: "前面的列表文本")]),
+                Paragraph(kind: .list(kind, 1))
+            ]))
+            bridge.select(NSRange(location: bridge.document.length, length: 0))
+            let layout = try XCTUnwrap(view.layoutManager)
+            layout.ensureLayout(for: view.textContainer!)
+            let extra = layout.extraLineFragmentRect
+            let font = TextKitRenderer.font(for: .plain, block: .body)
+            let marker = try XCTUnwrap(ListMarkerRenderer.firstLine(1, document: bridge.document,
+                map: bridge.positionMap, view: view))
+            for offset: CGFloat in [0, -6, -18] {
+                let native = NSRect(x: 27, y: view.textContainerOrigin.y + extra.minY + offset,
+                                    width: 1, height: extra.height)
+                let caret = view.insertionPointDrawingRect(native, characterIndex: bridge.document.length)
+                XCTAssertEqual(caret.midY, view.textContainerOrigin.y + marker.1 - (font.ascender + font.descender) / 2, accuracy: 0.001)
+                XCTAssertEqual(caret.height, layout.defaultLineHeight(for: font))
+            }
         }
     }
 
@@ -108,7 +151,7 @@ final class EditorAppKitTests: XCTestCase {
         let native = NSRect(x: 50, y: view.textContainerOrigin.y + line.minY, width: 1, height: line.height)
         let caret = view.insertionPointDrawingRect(native)
         XCTAssertEqual(caret.midY, baseline - (font.ascender + font.descender) / 2, accuracy: 0.001)
-        XCTAssertEqual(caret.height, native.height)
+        XCTAssertEqual(caret.height, layout.defaultLineHeight(for: font))
 
         let image = NSImage(size: NSSize(width: 80, height: 80))
         image.lockFocus(); NSColor.green.setFill(); NSRect(x: 0, y: 0, width: 80, height: 80).fill(); image.unlockFocus()
@@ -120,6 +163,104 @@ final class EditorAppKitTests: XCTestCase {
         let imageCaret = view.insertionPointDrawingRect(NSRect(x: view.textContainerOrigin.x, y: view.textContainerOrigin.y + imageLine.minY, width: 1, height: imageLine.height))
         XCTAssertEqual(imageCaret.midY, imageBaseline - attachment.bounds.midY, accuracy: 0.001)
         XCTAssertEqual(imageCaret.height, attachment.bounds.height)
+    }
+
+    func testSelectionBackgroundCentersAcrossWrappedAndEmptyLines() throws {
+        bridge.load(.plain("将duckduckgo作为默认的搜索后端，并检查其当前的超时配置阈值\n\n末行"))
+        let layout = try XCTUnwrap(view.layoutManager as? EditorLayoutManager)
+        let container = try XCTUnwrap(view.textContainer)
+        layout.ensureLayout(for: container)
+        let range = NSRange(location: 0, length: bridge.document.length)
+        bridge.select(range)
+        let before = bridge.state
+        let glyphs = layout.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+        var native: [NSRect] = []
+        layout.enumerateEnclosingRects(forGlyphRange: glyphs, withinSelectedGlyphRange: glyphs, in: container) { rect, _ in
+            native.append(rect.offsetBy(dx: self.view.textContainerOrigin.x, dy: self.view.textContainerOrigin.y))
+        }
+        let adjusted = native
+        XCTAssertGreaterThanOrEqual(adjusted.count, 4)
+        for rect in adjusted {
+            XCTAssertGreaterThan(rect.width, 0)
+            XCTAssertEqual(rect.height, 18, accuracy: 0.01)
+        }
+        let font = TextKitRenderer.font(for: .plain, block: .body)
+        let baseline = view.textContainerOrigin.y + layout.location(forGlyphAt: 0).y
+        XCTAssertEqual(try XCTUnwrap(adjusted.first).midY, baseline - (font.ascender + font.descender) / 2, accuracy: 0.01)
+        XCTAssertEqual(bridge.state, before)
+    }
+
+    func testSelectionPaintUsesFontHeight() throws {
+        bridge.load(.plain("探测duckduckgo可以访问注册它为后端\n下一行"))
+        view.selectedTextAttributes = [.backgroundColor: NSColor.magenta]
+        bridge.select(NSRange(location: 0, length: 10))
+        let layout = try XCTUnwrap(view.layoutManager as? EditorLayoutManager)
+        layout.ensureLayout(for: view.textContainer!)
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 320, pixelsHigh: 200,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        let context = try XCTUnwrap(NSGraphicsContext(bitmapImageRep: bitmap))
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = context
+        layout.drawBackground(forGlyphRange: NSRange(location: 0, length: layout.numberOfGlyphs), at: .zero)
+        NSGraphicsContext.restoreGraphicsState()
+        let rows = (0..<200).filter { y in
+            guard let color = bitmap.colorAt(x: 10, y: y)?.usingColorSpace(.deviceRGB) else { return false }
+            return color.alphaComponent > 0.5 && color.redComponent > 0.8 && color.blueComponent > 0.8
+        }
+        // Fractional rectangle edges can cover one additional raster row.
+        XCTAssertTrue((18...19).contains(rows.count), "Painted height: \(rows.count)")
+        let glyphs = layout.glyphRange(forCharacterRange: view.selectedRange(), actualCharacterRange: nil)
+        var expected: NSRect?
+        layout.enumerateEnclosingRects(forGlyphRange: glyphs, withinSelectedGlyphRange: glyphs, in: view.textContainer!) { rect, _ in
+            if expected == nil { expected = rect }
+        }
+        let paintedCenter = CGFloat(try XCTUnwrap(rows.first) + (try XCTUnwrap(rows.last)) + 1) / 2
+        XCTAssertEqual(paintedCenter, 200 - (try XCTUnwrap(expected)).midY, accuracy: 1)
+    }
+
+    func testSelectionTrackingAndRedrawUseIdenticalRectangles() throws {
+        bridge.load(.plain("将duckduckgo作为默认的搜索后端\n下一行"))
+        let layout = try XCTUnwrap(view.layoutManager as? EditorLayoutManager)
+        let container = try XCTUnwrap(view.textContainer)
+        layout.ensureLayout(for: container)
+        let range = NSRange(location: 1, length: 10)
+        let glyphs = layout.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+        func rectangles(selected: NSRange) -> [NSRect] {
+            var result: [NSRect] = []
+            layout.enumerateEnclosingRects(forGlyphRange: glyphs, withinSelectedGlyphRange: selected, in: container) { rect, _ in result.append(rect) }
+            return result
+        }
+        let original = try XCTUnwrap(rectangles(selected: NSRange(location: NSNotFound, length: 0)).first)
+        let tracking = rectangles(selected: glyphs)
+        bridge.select(range)
+        layout.ensureLayout(for: container)
+        XCTAssertEqual(tracking, rectangles(selected: glyphs))
+        let adjusted = try XCTUnwrap(tracking.first)
+        XCTAssertEqual(adjusted.minX, original.minX, accuracy: 0.001)
+        XCTAssertEqual(adjusted.width, original.width, accuracy: 0.001)
+        XCTAssertLessThan(adjusted.height, original.height)
+        let font = TextKitRenderer.font(for: .plain, block: .body)
+        XCTAssertEqual(adjusted.midY, layout.location(forGlyphAt: glyphs.location).y - (font.ascender + font.descender) / 2, accuracy: 0.001)
+    }
+
+    func testSelectionBackgroundUsesImageBoundsAndSplitsMergedRects() throws {
+        let image = NSImage(size: NSSize(width: 80, height: 80))
+        image.lockFocus(); NSColor.green.setFill(); NSRect(x: 0, y: 0, width: 80, height: 80).fill(); image.unlockFocus()
+        bridge.load(ClipboardCodec.imageFragment([image]))
+        let layout = try XCTUnwrap(view.layoutManager as? EditorLayoutManager)
+        layout.ensureLayout(for: view.textContainer!)
+        let line = layout.lineFragmentRect(forGlyphAt: 0, effectiveRange: nil).offsetBy(dx: view.textContainerOrigin.x, dy: view.textContainerOrigin.y)
+        let rect = try XCTUnwrap(layout.selectionBackgroundRects([line], characterRange: NSRange(location: 0, length: 1), origin: view.textContainerOrigin).first)
+        let attachment = view.textStorage!.attribute(.attachment, at: 0, effectiveRange: nil) as! NSTextAttachment
+        XCTAssertEqual(rect.height, attachment.bounds.height)
+        XCTAssertEqual(rect.midY, line.minY + layout.location(forGlyphAt: 0).y - attachment.bounds.midY, accuracy: 0.01)
+
+        bridge.load(.plain("第一行\n第二行\n第三行"))
+        layout.ensureLayout(for: view.textContainer!)
+        let merged = layout.usedRect(for: view.textContainer!).offsetBy(dx: view.textContainerOrigin.x, dy: view.textContainerOrigin.y)
+        let split = layout.selectionBackgroundRects([merged], characterRange: NSRange(location: 0, length: bridge.document.length), origin: view.textContainerOrigin)
+        XCTAssertEqual(split.count, 3)
+        XCTAssertTrue(split.allSatisfy { $0.height == split[0].height })
     }
 
     func testPickedImagesInsertAtSelectionAndUndoTogether() {
