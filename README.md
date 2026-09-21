@@ -38,7 +38,7 @@ open build/Build/Products/Debug/NoteMenu.app
 - 写入备忘录：通过 AppleScript（`make new note` / `make new attachment`）实现，正文直接从模型导出为规范白名单 HTML，图片按顺序追加为附件
 - 草稿：应用支持目录下的 `NoteMenu/draft-v1.json` 原子保存模型、输入格式和图片；旧 `draft.rtfd` 迁移源会保留，清空时移为备份以免旧稿恢复
 - 沙盒：开启 App Sandbox，通过 `com.apple.security.temporary-exception.apple-events` 获得控制备忘录的权限
-- 图标：彩色应用图标原图保存在 `assets/notemenu-app-icon.png`，各尺寸资源位于 `NoteMenu/Resources/Assets.xcassets/AppIcon.appiconset`；菜单栏沿用 `assets/note.svg` 生成的 18pt 黑白图标，以 template 模式适应深浅色背景
+- 图标：彩色应用图标原图保存在 `assets/notemenu-app-icon.png`，各尺寸资源位于 `NoteMenu/Resources/Assets.xcassets/AppIcon.appiconset`；菜单栏图标原图保存在 `assets/notemenu-status-icon.png`，采用白色便笺与透明文字、笔形镂空，生成 18pt 的 1x/2x 资源，以 template 模式适应深浅色背景
 
 ## 编辑器测试
 
