@@ -33,12 +33,12 @@ enum TextKitRenderer {
     static let textColor = NSColor(srgbRed: 50 / 255, green: 50 / 255, blue: 50 / 255, alpha: 1)
     static let codeBackgroundColor = NSColor(srgbRed: 234 / 255, green: 234 / 255, blue: 234 / 255, alpha: 1)
     static let codeHorizontalPadding: CGFloat = 4
-    static let codeVerticalPadding: CGFloat = 2
+    static let codeVerticalPadding: CGFloat = 4
     static let codeBlockSpacing: CGFloat = 2
     static func paragraphStyle(_ kind: BlockKind, includeNativeLists: Bool = false) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
         style.lineSpacing = kind == .body || kind.list != nil ? 6 : 4
-        style.paragraphSpacing = kind == .body || kind.list != nil ? 4 : 0
+        style.paragraphSpacing = 0
         style.paragraphSpacingBefore = 0
         if kind.isCode {
             style.headIndent = codeHorizontalPadding

@@ -39,7 +39,7 @@ private final class NotePanel: NSPanel {
         if event.type == .leftMouseDown, attachedSheet == nil, let contentView {
             // Match the 36pt custom title bar; leave side resize handles and Pin/Close untouched.
             let dragRect = NSRect(x: 6, y: contentView.bounds.height - 36,
-                                  width: max(0, contentView.bounds.width - 78), height: 36)
+                                  width: max(0, contentView.bounds.width - 90), height: 36)
             if dragRect.contains(event.locationInWindow) {
                 performDrag(with: event)
                 return

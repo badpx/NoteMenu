@@ -34,19 +34,92 @@ final class EditorAppKitTests: XCTestCase {
         XCTAssertEqual(actual, reference, file: file, line: line)
     }
 
-    func testCaretHeightDoesNotGrowWithParagraphSpacing() {
+    func testCaretHeightUsesFontAndSpacingRatherThanNativeEOFRect() {
         for size: CGFloat in [14, 15, 22] {
             let font = NSFont.systemFont(ofSize: size)
-            view.typingAttributes = [.font: font]
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.lineSpacing = 6
+            view.typingAttributes = [.font: font, .paragraphStyle: paragraph]
             let natural = view.layoutManager!.defaultLineHeight(for: font)
-            for spacing: CGFloat in [0, 4, 10] {
+            for spacing: CGFloat in [0, 4, 10, 72] {
                 let rect = NSRect(x: 12, y: 20, width: 1, height: natural + spacing)
                 let caret = view.insertionPointDrawingRect(rect)
-                XCTAssertEqual(caret.height, natural)
-                XCTAssertEqual(caret.origin, rect.origin)
+                XCTAssertEqual(caret.height, natural + 6)
+                XCTAssertEqual(caret.minX, rect.minX)
+                let center = view.textContainerOrigin.y + view.layoutManager!.extraLineFragmentRect.minY + view.layoutManager!.defaultBaselineOffset(for: font)
+                    - (font.ascender + font.descender) / 2
+                XCTAssertEqual(caret.midY, center, accuracy: 0.001)
                 XCTAssertEqual(caret.width, rect.width + 1)
             }
         }
+    }
+
+    func testEmptyLineCaretStaysCenteredWhenTextAppears() {
+        for trailing in ["", "\n后"] {
+            var centers: [CGFloat] = []
+            for content in ["", "x", "文"] {
+                bridge.load(.plain("前\n" + content + trailing))
+                bridge.select(NSRange(location: 2, length: 0))
+                let layout = view.layoutManager!
+                layout.ensureLayout(for: view.textContainer!)
+                let line = content.isEmpty && trailing.isEmpty
+                    ? layout.extraLineFragmentRect
+                    : layout.lineFragmentRect(forGlyphAt: layout.glyphIndexForCharacter(at: 2), effectiveRange: nil)
+                let rect = NSRect(x: view.textContainerOrigin.x + 5,
+                                  y: view.textContainerOrigin.y + line.minY, width: 1, height: line.height)
+                let caret = view.insertionPointDrawingRect(rect)
+                centers.append(caret.midY)
+                XCTAssertEqual(caret.height, layout.defaultLineHeight(for: view.typingAttributes[.font] as! NSFont) + 6)
+            }
+            XCTAssertEqual(centers[0], centers[1], accuracy: 0.001)
+            XCTAssertEqual(centers[0], centers[2], accuracy: 0.001)
+        }
+    }
+
+    func testCaretHeightMatchesAcrossMiddleLastAndEmptyLines() {
+        bridge.load(.plain("面面\n面面\n面面\n"))
+        let layout = view.layoutManager!
+        layout.ensureLayout(for: view.textContainer!)
+        var heights: [CGFloat] = []
+        for offset in [0, 3, 6, 9] {
+            bridge.select(NSRange(location: offset, length: 0))
+            let line = offset == 9 ? layout.extraLineFragmentRect
+                : layout.lineFragmentRect(forGlyphAt: layout.glyphIndexForCharacter(at: offset), effectiveRange: nil)
+            heights.append(view.insertionPointDrawingRect(NSRect(x: view.textContainerOrigin.x + 5,
+                y: view.textContainerOrigin.y + line.minY, width: 1, height: line.height)).height)
+        }
+        bridge.load(.plain("面面\n面面\n面面"))
+        bridge.select(NSRange(location: 8, length: 0))
+        layout.ensureLayout(for: view.textContainer!)
+        let last = layout.lineFragmentRect(forGlyphAt: layout.glyphIndexForCharacter(at: 6), effectiveRange: nil)
+        heights.append(view.insertionPointDrawingRect(NSRect(x: view.textContainerOrigin.x + 5,
+            y: view.textContainerOrigin.y + last.minY, width: 1, height: last.height)).height)
+        XCTAssertTrue(heights.allSatisfy { $0 == heights[0] })
+    }
+
+    func testCaretCentersOnLaidOutTextAndImage() {
+        bridge.load(.plain("进来吧\n你是谁？\n不好说"))
+        let layout = view.layoutManager!
+        layout.ensureLayout(for: view.textContainer!)
+        let glyph = layout.glyphIndexForCharacter(at: 5)
+        let line = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+        let font = view.textStorage!.attribute(.font, at: 5, effectiveRange: nil) as! NSFont
+        let baseline = view.textContainerOrigin.y + line.minY + layout.location(forGlyphAt: glyph).y
+        let native = NSRect(x: 50, y: view.textContainerOrigin.y + line.minY, width: 1, height: line.height)
+        let caret = view.insertionPointDrawingRect(native)
+        XCTAssertEqual(caret.midY, baseline - (font.ascender + font.descender) / 2, accuracy: 0.001)
+        XCTAssertEqual(caret.height, native.height)
+
+        let image = NSImage(size: NSSize(width: 80, height: 80))
+        image.lockFocus(); NSColor.green.setFill(); NSRect(x: 0, y: 0, width: 80, height: 80).fill(); image.unlockFocus()
+        bridge.load(ClipboardCodec.imageFragment([image]))
+        layout.ensureLayout(for: view.textContainer!)
+        let imageLine = layout.lineFragmentRect(forGlyphAt: 0, effectiveRange: nil)
+        let attachment = view.textStorage!.attribute(.attachment, at: 0, effectiveRange: nil) as! NSTextAttachment
+        let imageBaseline = view.textContainerOrigin.y + imageLine.minY + layout.location(forGlyphAt: 0).y
+        let imageCaret = view.insertionPointDrawingRect(NSRect(x: view.textContainerOrigin.x, y: view.textContainerOrigin.y + imageLine.minY, width: 1, height: imageLine.height))
+        XCTAssertEqual(imageCaret.midY, imageBaseline - attachment.bounds.midY, accuracy: 0.001)
+        XCTAssertEqual(imageCaret.height, attachment.bounds.height)
     }
 
     func testPickedImagesInsertAtSelectionAndUndoTogether() {

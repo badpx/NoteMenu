@@ -119,6 +119,7 @@ struct NoteEditorView: View {
                             : Color.secondary)
                 }
                 .buttonStyle(.borderless)
+                .modifier(FormatControlHover())
                 .help(isPinned ? "取消置顶" : "置顶")
                 Button {
                     showSavedNotice = false
@@ -130,6 +131,7 @@ struct NoteEditorView: View {
                         .foregroundStyle(Color.secondary)
                 }
                 .buttonStyle(.borderless)
+                .modifier(FormatControlHover())
                 .help("关闭")
             }
         }

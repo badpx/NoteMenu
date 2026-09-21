@@ -22,7 +22,7 @@ final class EditorTextView: NSTextView {
         view.isAutomaticSpellingCorrectionEnabled = false
         view.font = .systemFont(ofSize: 15)
         view.textColor = TextKitRenderer.textColor
-        view.insertionPointColor = NSColor(srgbRed: 225 / 255, green: 177 / 255, blue: 28 / 255, alpha: 1)
+        view.insertionPointColor = NSColor(srgbRed: 252 / 255, green: 184 / 255, blue: 38 / 255, alpha: 1)
         view.drawsBackground = false
         view.isVerticallyResizable = true
         view.isHorizontallyResizable = false
@@ -204,13 +204,51 @@ final class EditorTextView: NSTextView {
 
     override func changeFont(_ sender: Any?) { /* All formatting goes through editor commands. */ }
     func insertionPointDrawingRect(_ rect: NSRect) -> NSRect {
-        let font = typingAttributes[.font] as? NSFont ?? self.font ?? NSFont.systemFont(ofSize: 15)
         var result = rect
-        // Native insertion rectangles include paragraph/line leading. Keep the visible caret
-        // at the font's natural line height without changing layout or IME candidate coordinates.
-        let height = layoutManager?.defaultLineHeight(for: font) ?? ceil(font.ascender - font.descender)
-        result.size.height = min(rect.height, height)
         result.size.width = rect.width + 1
+        guard let layout = layoutManager, let container = textContainer, let storage = textStorage else { return result }
+        layout.ensureLayout(for: container)
+        let font = typingAttributes[.font] as? NSFont ?? self.font ?? NSFont.systemFont(ofSize: 15)
+        let style = typingAttributes[.paragraphStyle] as? NSParagraphStyle ?? .default
+        result.size.height = layout.defaultLineHeight(for: font) + style.lineSpacing
+        var center = rect.minY + layout.defaultBaselineOffset(for: font) - (font.ascender + font.descender) / 2
+        let point = NSPoint(x: rect.minX - textContainerOrigin.x,
+                           y: rect.minY - textContainerOrigin.y + 1)
+        if !layout.extraLineFragmentRect.isEmpty, point.y >= layout.extraLineFragmentRect.minY {
+            center = textContainerOrigin.y + layout.extraLineFragmentRect.minY
+                + layout.defaultBaselineOffset(for: font) - (font.ascender + font.descender) / 2
+        }
+        // Resolve the line from the supplied drawing rectangle, not the selection: AppKit may
+        // still be erasing the previous caret after the selection has moved.
+        if layout.numberOfGlyphs > 0, point.y < layout.extraLineFragmentRect.minY || layout.extraLineFragmentRect.isEmpty {
+            let glyph = layout.glyphIndex(for: point, in: container)
+            if glyph < layout.numberOfGlyphs {
+                var lineRange = NSRange()
+                let line = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: &lineRange)
+                let character = layout.characterIndexForGlyph(at: glyph)
+                let lineFont = storage.attribute(.font, at: character, effectiveRange: nil) as? NSFont ?? font
+                let lineStyle = storage.attribute(.paragraphStyle, at: character, effectiveRange: nil) as? NSParagraphStyle ?? style
+                result.size.height = layout.defaultLineHeight(for: lineFont) + lineStyle.lineSpacing
+                let characters = layout.characterRange(forGlyphRange: lineRange, actualGlyphRange: nil)
+                let lineText = (storage.string as NSString).substring(with: characters)
+                // A newline-only glyph inherits spacing in its baseline offset. Use the same
+                // natural baseline as the first typed character so empty lines do not jump.
+                let baselineOffset = lineText.allSatisfy { $0 == "\n" || $0 == "\r" }
+                    ? layout.defaultBaselineOffset(for: lineFont) : layout.location(forGlyphAt: glyph).y
+                let baseline = textContainerOrigin.y + line.minY + baselineOffset
+                center = baseline - (lineFont.ascender + lineFont.descender) / 2
+                storage.enumerateAttribute(.attachment, in: characters) { value, _, stop in
+                    if let attachment = value as? NSTextAttachment {
+                        center = baseline - attachment.bounds.midY
+                        result.size.height = attachment.bounds.height
+                        stop.pointee = true
+                    }
+                }
+            }
+        }
+        // TextKit omits trailing spacing from EOF fragments. Derive a consistent height
+        // from the line's font and line spacing, excluding paragraph padding.
+        result.origin.y = center - result.height / 2
         return result
     }
 
@@ -219,8 +257,8 @@ final class EditorTextView: NSTextView {
     }
 
     override func setNeedsDisplay(_ invalidRect: NSRect) {
-        // Native caret invalidation uses its original width; include the extra painted point.
-        super.setNeedsDisplay(invalidRect.insetBy(dx: -1, dy: 0))
+        // Include the shifted caret so blinking and selection moves cannot leave a stale edge.
+        super.setNeedsDisplay(invalidRect.insetBy(dx: -1, dy: -max(0, invalidRect.height)))
     }
 
     override func changeColor(_ sender: Any?) {}
