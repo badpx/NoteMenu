@@ -36,15 +36,33 @@ final class EditorTextView: NSTextView {
         let string = (insertString as? NSAttributedString)?.string ?? (insertString as? String) ?? ""
         let wasMarked = hasMarkedText() || bridge.isComposing
         bridge.runNative(inserted: wasMarked ? nil : string) {
-            super.insertText(insertString, replacementRange: replacementRange)
+            let range = !wasMarked && !string.isEmpty
+                ? separateImageLine(replacementRange: replacementRange) : replacementRange
+            super.insertText(insertString, replacementRange: range)
         }
     }
 
     override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
         guard let bridge else { super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange); return }
+        let beginsComposition = !hasMarkedText() && !bridge.isComposing
+        let text = (string as? NSAttributedString)?.string ?? (string as? String) ?? ""
         bridge.runMarkedInput {
-            super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
+            let range = beginsComposition && !text.isEmpty
+                ? separateImageLine(replacementRange: replacementRange) : replacementRange
+            super.setMarkedText(string, selectedRange: selectedRange, replacementRange: range)
         }
+    }
+
+    private func separateImageLine(replacementRange: NSRange) -> NSRange {
+        guard let bridge else { return replacementRange }
+        let range = replacementRange.location == NSNotFound ? self.selectedRange() : replacementRange
+        let padding = bridge.imageBoundaryPadding(for: range)
+        guard padding.before || padding.after else { return replacementRange }
+        // Run inside the caller's native/IME transaction so separation and text undo together.
+        super.insertText((padding.before ? "\n" : "") + (padding.after ? "\n" : ""), replacementRange: range)
+        let insertion = NSRange(location: range.location + (padding.before ? 1 : 0), length: 0)
+        setSelectedRange(insertion)
+        return insertion
     }
 
     override func unmarkText() {

@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct NoteEditorView: View {
     private static let barHeight: CGFloat = 36
@@ -198,12 +199,14 @@ struct NoteEditorView: View {
             .modifier(FormatControlHover())
             .help("编号列表")
 
-            if model.attachmentCount > 0 {
-                Label("\(model.attachmentCount)", systemImage: "photo")
-                    .font(.system(size: 11))
+            Button(action: chooseImages) {
+                Image(systemName: "photo")
                     .foregroundStyle(Color.secondary)
-                    .help("图片将按当前图文顺序保存到备忘录")
             }
+            .buttonStyle(.borderless)
+            .modifier(FormatControlHover())
+            .help("添加图片")
+            .accessibilityLabel("添加图片")
 
             Spacer()
 
@@ -230,6 +233,43 @@ struct NoteEditorView: View {
         .padding(.horizontal, 12)
         .frame(height: Self.barHeight)
         .disabled(model.isSaving)
+    }
+
+    private func chooseImages() {
+        guard let textView = model.bridge.textView, let window = textView.window,
+              window.attachedSheet == nil else { return }
+        // Commit an active input-method candidate before remembering the insertion point.
+        if textView.hasMarkedText() { textView.unmarkText() }
+        let selection = model.bridge.state.session.selection
+        let picker = NSOpenPanel()
+        picker.title = "添加图片"
+        picker.prompt = "插入"
+        picker.allowedContentTypes = [.image]
+        picker.canChooseDirectories = false
+        picker.allowsMultipleSelection = true
+        picker.beginSheetModal(for: window) { response in
+            guard response == .OK else {
+                window.makeFirstResponder(textView)
+                return
+            }
+            var images: [NSImage] = []
+            for url in picker.urls {
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                guard let data = try? Data(contentsOf: url), let image = NSImage(data: data),
+                      image.isValid else {
+                    let alert = NSAlert()
+                    alert.messageText = "无法读取图片"
+                    alert.informativeText = "无法打开“\(url.lastPathComponent)”，请检查文件是否可用或选择其他图片。"
+                    alert.beginSheetModal(for: window) { _ in window.makeFirstResponder(textView) }
+                    return
+                }
+                images.append(image)
+            }
+            model.bridge.select(selection)
+            model.bridge.insertImages(images)
+            window.makeFirstResponder(textView)
+        }
     }
 
     private var saveBackgroundColor: Color {

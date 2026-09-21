@@ -34,6 +34,97 @@ final class EditorAppKitTests: XCTestCase {
         XCTAssertEqual(actual, reference, file: file, line: line)
     }
 
+    func testPickedImagesInsertAtSelectionAndUndoTogether() {
+        type("前文后文")
+        bridge.select(NSRange(location: 2, length: 0))
+        let image = NSImage(size: NSSize(width: 20, height: 20))
+        image.lockFocus()
+        NSColor.green.setFill()
+        NSRect(x: 0, y: 0, width: 20, height: 20).fill()
+        image.unlockFocus()
+        bridge.insertImages([image, image])
+        XCTAssertEqual(bridge.document.text, "前文\n\u{FFFC}\n\u{FFFC}\n后文")
+        XCTAssertEqual(bridge.document.assetOrder.count, 2)
+        XCTAssertEqual(bridge.state.session.selection, NSRange(location: 7, length: 0))
+        view.undo(nil)
+        XCTAssertEqual(bridge.document.text, "前文后文")
+        XCTAssertEqual(bridge.state.session.selection, NSRange(location: 2, length: 0))
+        view.redo(nil)
+        XCTAssertEqual(bridge.document.text, "前文\n\u{FFFC}\n\u{FFFC}\n后文")
+        assertProjection()
+    }
+
+    func testImageInsertionRespectsLineBoundaries() {
+        let image = NSImage(size: NSSize(width: 20, height: 20))
+        image.lockFocus()
+        NSColor.green.setFill()
+        NSRect(x: 0, y: 0, width: 20, height: 20).fill()
+        image.unlockFocus()
+        let cases: [(String, NSRange, String)] = [
+            ("", NSRange(location: 0, length: 0), "\u{FFFC}"),
+            ("正文", NSRange(location: 0, length: 0), "\u{FFFC}\n正文"),
+            ("正文", NSRange(location: 2, length: 0), "正文\n\u{FFFC}"),
+            ("前\n后", NSRange(location: 2, length: 0), "前\n\u{FFFC}\n后"),
+            ("前选中后", NSRange(location: 1, length: 2), "前\n\u{FFFC}\n后"),
+            ("前\n后", NSRange(location: 1, length: 0), "前\n\u{FFFC}\n后")
+        ]
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally() }
+        board.setData(NotesSaver.pngData(for: image), forType: .png)
+        for (text, range, expected) in cases {
+            for paste in [false, true] {
+                bridge.load(.plain(text))
+                bridge.select(range)
+                if paste { bridge.paste(from: board) } else { bridge.insertImages([image]) }
+                XCTAssertEqual(bridge.document.text, expected)
+                assertProjection()
+                view.undo(nil)
+                XCTAssertEqual(bridge.document.text, text)
+                XCTAssertEqual(bridge.state.session.selection, range)
+            }
+        }
+    }
+
+    func testTextAroundImageStartsSeparateLineIncludingIMEAndPaste() {
+        let image = NSImage(size: NSSize(width: 20, height: 20))
+        image.lockFocus()
+        NSColor.green.setFill()
+        NSRect(x: 0, y: 0, width: 20, height: 20).fill()
+        image.unlockFocus()
+        let source = ClipboardCodec.imageFragment([image])
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally() }
+        board.setString("文字", forType: .string)
+        for offset in [0, 1] {
+            for mode in ["typing", "ime", "paste"] {
+                bridge.load(source)
+                bridge.select(NSRange(location: offset, length: 0))
+                switch mode {
+                case "typing": view.insertText("文字", replacementRange: NSRange(location: NSNotFound, length: 0))
+                case "ime":
+                    view.setMarkedText("wen", selectedRange: NSRange(location: 3, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+                    XCTAssertEqual(view.string, offset == 0 ? "wen\n\u{FFFC}" : "\u{FFFC}\nwen")
+                    view.setMarkedText("文字", selectedRange: NSRange(location: 2, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+                    view.insertText("文字", replacementRange: view.markedRange())
+                default: bridge.paste(from: board)
+                }
+                XCTAssertEqual(bridge.document.text, offset == 0 ? "文字\n\u{FFFC}" : "\u{FFFC}\n文字")
+                XCTAssertEqual(bridge.document.assetOrder.count, 1)
+                assertProjection()
+                view.undo(nil)
+                XCTAssertEqual(bridge.document.text, source.text)
+                XCTAssertEqual(bridge.state.session.selection, NSRange(location: offset, length: 0))
+                view.redo(nil)
+                XCTAssertEqual(bridge.document.text, offset == 0 ? "文字\n\u{FFFC}" : "\u{FFFC}\n文字")
+                assertProjection()
+            }
+        }
+        bridge.load(source)
+        bridge.select(NSRange(location: 0, length: 1))
+        view.insertText("替换", replacementRange: NSRange(location: NSNotFound, length: 0))
+        XCTAssertEqual(bridge.document.text, "替换")
+    }
+
     func testNativeTriggerResetAndUndo_T12_T15_U01_U03() {
         type("**中文**")
         XCTAssertEqual(view.string, "中文")

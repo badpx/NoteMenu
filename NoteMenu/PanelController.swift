@@ -291,7 +291,7 @@ final class PanelController {
         globalEventMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
         ) { [weak self] _ in
-            guard let self, !self.isPinned else { return }
+            guard let self, !self.isPinned, self.panel.attachedSheet == nil else { return }
             if self.isEventOnAnchorButton(at: NSEvent.mouseLocation) { return }
             self.close()
         }
@@ -299,7 +299,7 @@ final class PanelController {
         localEventMonitor = NSEvent.addLocalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
         ) { [weak self] event in
-            guard let self, !self.isPinned else { return event }
+            guard let self, !self.isPinned, self.panel.attachedSheet == nil else { return event }
             if event.window == self.panel { return event }
             if event.window != nil, event.window == self.anchorButton?.window { return event }
             self.close()

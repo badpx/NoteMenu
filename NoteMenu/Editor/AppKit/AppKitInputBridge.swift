@@ -317,7 +317,30 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
     func paste(from pasteboard: NSPasteboard, plainOnly: Bool = false) {
         guard !isComposing,
               let (fragment, preserve) = ClipboardCodec.read(pasteboard, plainOnly: plainOnly, style: state.session.insertionStyle) else { return }
-        execute(.replace(state.session.selection, fragment, preserveBlocks: preserve), name: "粘贴")
+        if !fragment.assets.isEmpty, fragment.text.allSatisfy({ $0 == "\u{FFFC}" }) {
+            insertImageFragment(fragment, name: "粘贴图片")
+            return
+        }
+        var insertion = fragment
+        let padding = imageBoundaryPadding(for: state.session.selection)
+        if padding.before && insertion.paragraphs.first?.isEmpty == false {
+            insertion.paragraphs.insert(Paragraph(), at: 0)
+        }
+        if padding.after && insertion.paragraphs.last?.isEmpty == false {
+            insertion.paragraphs.append(Paragraph())
+        }
+        execute(.replace(state.session.selection, insertion, preserveBlocks: preserve), name: "粘贴")
+    }
+
+    /// Only retained attachments need separation; replacing a selected image stays in place.
+    func imageBoundaryPadding(for range: NSRange) -> (before: Bool, after: Bool) {
+        let range = positionMap.clamped(range)
+        let start = positionMap.position(at: range.location)
+        let end = positionMap.position(at: NSMaxRange(range))
+        let left = document.paragraphs[start.index].slice(NSRange(location: 0, length: start.offset))
+        let right = document.paragraphs[end.index].slice(NSRange(location: end.offset,
+            length: document.paragraphs[end.index].length - end.offset))
+        return (left.contains { $0.assetID != nil }, right.contains { $0.assetID != nil })
     }
 
     func copy(to pasteboard: NSPasteboard, cut: Bool = false) {
@@ -329,7 +352,21 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
     func insertImages(_ images: [NSImage]) {
         let fragment = ClipboardCodec.imageFragment(images)
         guard fragment.canSend else { return }
-        execute(.replace(state.session.selection, fragment, preserveBlocks: false), name: "插入图片")
+        insertImageFragment(fragment, name: "插入图片")
+    }
+
+    private func insertImageFragment(_ fragment: EditorDocument, name: String) {
+        let selection = positionMap.clamped(state.session.selection)
+        let start = positionMap.position(at: selection.location)
+        let end = positionMap.position(at: NSMaxRange(selection))
+        var insertion = fragment
+        insertion.paragraphs = fragment.paragraphs.flatMap(\.runs).map { Paragraph(runs: [$0]) }
+        // Keep images on their own lines without adding blank lines at existing boundaries.
+        if start.offset > 0 { insertion.paragraphs.insert(Paragraph(), at: 0) }
+        if end.offset < document.paragraphs[end.index].length {
+            insertion.paragraphs.append(Paragraph())
+        }
+        execute(.replace(selection, insertion, preserveBlocks: false), name: name)
     }
 
     var listItems: [Int: ListResolver.Item] { listCache }
