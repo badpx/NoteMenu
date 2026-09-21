@@ -109,8 +109,16 @@ final class EditorLayoutManager: NSLayoutManager {
 }
 
 enum TextKitRenderer {
-    static let textColor = NSColor(srgbRed: 50 / 255, green: 50 / 255, blue: 50 / 255, alpha: 1)
-    static let codeBackgroundColor = NSColor(srgbRed: 234 / 255, green: 234 / 255, blue: 234 / 255, alpha: 1)
+    static let textColor = NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? NSColor(srgbRed: 224 / 255, green: 224 / 255, blue: 224 / 255, alpha: 1)
+            : NSColor(srgbRed: 50 / 255, green: 50 / 255, blue: 50 / 255, alpha: 1)
+    }
+    static let codeBackgroundColor = NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? NSColor(srgbRed: 56 / 255, green: 56 / 255, blue: 58 / 255, alpha: 1)
+            : NSColor(srgbRed: 234 / 255, green: 234 / 255, blue: 234 / 255, alpha: 1)
+    }
     static let codeHorizontalPadding: CGFloat = 4
     static let codeVerticalPadding: CGFloat = 4
     static let codeBlockSpacing: CGFloat = 2

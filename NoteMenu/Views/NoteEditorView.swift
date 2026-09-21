@@ -106,7 +106,7 @@ struct NoteEditorView: View {
         HStack {
             Text("NoteMenu")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color(red: 32 / 255, green: 32 / 255, blue: 32 / 255))
+                .foregroundStyle(.primary)
             if model.isSaving {
                 ProgressView()
                     .controlSize(.small)
