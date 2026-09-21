@@ -30,7 +30,7 @@ final class DraftStore {
                 guard document.assets.values.allSatisfy({ NSImage(data: $0.data) != nil }) else { throw EditorDataError.invalidDocument }
                 if let session = envelope.session {
                     guard session.insertionStyle.marks.subtracting(.supported).isEmpty, session.affinity <= 1 else { throw EditorDataError.invalidDocument }
-                    if let font = session.insertionStyle.font, ![12, 14, 18, 24].contains(font.size) { throw EditorDataError.invalidDocument }
+                    if let font = session.insertionStyle.font, ![12, 14, 15, 16, 18, 22, 24].contains(font.size) { throw EditorDataError.invalidDocument }
                 }
                 restoredSession = envelope.session
                 return document

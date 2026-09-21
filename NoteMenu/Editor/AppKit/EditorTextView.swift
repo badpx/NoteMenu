@@ -20,8 +20,8 @@ final class EditorTextView: NSTextView {
         view.isAutomaticDashSubstitutionEnabled = false
         view.isAutomaticTextReplacementEnabled = false
         view.isAutomaticSpellingCorrectionEnabled = false
-        view.font = .systemFont(ofSize: 14)
-        view.textColor = .textColor
+        view.font = .systemFont(ofSize: 15)
+        view.textColor = TextKitRenderer.textColor
         view.drawsBackground = false
         view.isVerticallyResizable = true
         view.isHorizontallyResizable = false
@@ -55,6 +55,31 @@ final class EditorTextView: NSTextView {
     override func insertNewline(_ sender: Any?) {
         guard !hasMarkedText(), let bridge, !bridge.isComposing else { super.insertNewline(sender); return }
         bridge.execute(.newline, name: "换行")
+    }
+
+    override func moveDown(_ sender: Any?) {
+        guard isEditable, !hasMarkedText(), let bridge, !bridge.isComposing,
+              selectedRange().length == 0, let layout = layoutManager, let container = textContainer else {
+            super.moveDown(sender); return
+        }
+        let map = bridge.positionMap
+        let position = map.position(at: selectedRange().location)
+        let paragraph = bridge.document.paragraphs[position.index]
+        // Existing following paragraphs use native vertical navigation. Only extend EOF.
+        guard position.index == bridge.document.paragraphs.count - 1, paragraph.kind.isCode else {
+            super.moveDown(sender); return
+        }
+        layout.ensureLayout(for: container)
+        if !paragraph.isEmpty {
+            let character = min(selectedRange().location, map.length - 1)
+            let glyph = layout.glyphIndexForCharacter(at: character)
+            var lineRange = NSRange()
+            _ = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: &lineRange)
+            guard NSMaxRange(lineRange) == layout.numberOfGlyphs else {
+                super.moveDown(sender); return
+            }
+        }
+        bridge.execute(.exitCodeAtDocumentEnd, name: "退出代码块")
     }
 
     override func insertTab(_ sender: Any?) {
@@ -188,6 +213,7 @@ final class EditorTextView: NSTextView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
+        drawCodeBackgrounds(in: dirtyRect)
         super.draw(dirtyRect)
         guard let bridge else { return }
         ListMarkerRenderer.draw(bridge, in: self, dirtyRect: dirtyRect)
@@ -195,9 +221,83 @@ final class EditorTextView: NSTextView {
             let origin = textContainerOrigin
             let padding = textContainer?.lineFragmentPadding ?? 0
             ("现在的想法是…" as NSString).draw(at: NSPoint(x: origin.x + padding, y: origin.y), withAttributes: [
-                .font: NSFont.systemFont(ofSize: 14), .foregroundColor: NSColor.placeholderTextColor,
+                .font: NSFont.systemFont(ofSize: 15), .foregroundColor: NSColor.placeholderTextColor,
             ])
         }
+    }
+
+    private func drawCodeBackgrounds(in dirtyRect: NSRect) {
+        for rect in codeBackgroundRects() where rect.intersects(dirtyRect) {
+            TextKitRenderer.codeBackgroundColor.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: 4, yRadius: 4).fill()
+        }
+    }
+
+    func codeBackgroundRects() -> [NSRect] {
+        guard let bridge, let layout = layoutManager, let container = textContainer else { return [] }
+        layout.ensureLayout(for: container)
+        var backgrounds: [NSRect] = []
+        let presentation = bridge.presentation
+        let paragraphs = presentation.document.paragraphs
+        let map = presentation.positions
+        var index = 0
+        while index < paragraphs.count {
+            guard paragraphs[index].kind.isCode else { index += 1; continue }
+            let start = index
+            while index + 1 < paragraphs.count, paragraphs[index + 1].kind.isCode { index += 1 }
+            let end = index
+            index += 1
+            let range = NSRange(location: map.starts[start],
+                                length: NSMaxRange(map.range(of: end, includingSeparator: true)) - map.starts[start])
+            let glyphs = layout.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+            var blockRect = NSRect.null
+            layout.enumerateLineFragments(forGlyphRange: glyphs) { rect, _, _, lineGlyphs, _ in
+                let character = layout.characterIndexForGlyph(at: lineGlyphs.location)
+                let font = self.textStorage?.attribute(.font, at: character, effectiveRange: nil) as? NSFont
+                    ?? TextKitRenderer.font(for: .plain, block: .codeLine)
+                let paragraphIndex = map.position(at: character).index
+                let baselineOffset = paragraphs[paragraphIndex].isEmpty
+                    ? layout.defaultBaselineOffset(for: font)
+                    : layout.location(forGlyphAt: lineGlyphs.location).y
+                let baseline = rect.minY + baselineOffset
+                // Fragment height includes paragraph spacing when followed by another
+                // paragraph. Paint from font metrics so adding a body line cannot resize it.
+                blockRect = blockRect.union(NSRect(x: rect.minX, y: baseline - font.ascender,
+                                                  width: rect.width, height: font.ascender - font.descender))
+            }
+            // An empty final code paragraph has no glyph; include its native caret line.
+            if end == paragraphs.count - 1, paragraphs[end].isEmpty {
+                let rect = layout.extraLineFragmentRect
+                let font = TextKitRenderer.font(for: .plain, block: .codeLine)
+                let baseline = rect.minY + layout.defaultBaselineOffset(for: font)
+                blockRect = blockRect.union(NSRect(x: rect.minX, y: baseline - font.ascender,
+                                                  width: rect.width, height: font.ascender - font.descender))
+            }
+            guard !blockRect.isNull, blockRect.height > 0 else { continue }
+            blockRect.origin.x = textContainerOrigin.x + max(0, container.lineFragmentPadding)
+            blockRect.origin.y += textContainerOrigin.y - TextKitRenderer.codeVerticalPadding
+            blockRect.size.height += 2 * TextKitRenderer.codeVerticalPadding
+            blockRect.size.width = max(0, container.containerSize.width - 2 * max(0, container.lineFragmentPadding))
+            // Paragraph spacing may be part of the final line fragment. Keep it
+            // outside the painted background, including next to a trailing empty body.
+            if start > 0 {
+                let precedingGlyph = layout.glyphIndexForCharacter(at: map.starts[start] - 1)
+                let preceding = layout.lineFragmentRect(forGlyphAt: precedingGlyph, effectiveRange: nil)
+                let top = max(blockRect.minY, textContainerOrigin.y + preceding.maxY + TextKitRenderer.codeBlockSpacing)
+                blockRect.size.height = max(0, blockRect.maxY - top)
+                blockRect.origin.y = top
+            }
+            if end + 1 < paragraphs.count {
+                let nextStart = map.starts[end + 1]
+                let next = nextStart == map.length
+                    ? layout.extraLineFragmentRect
+                    : layout.lineFragmentRect(forGlyphAt: layout.glyphIndexForCharacter(at: nextStart), effectiveRange: nil)
+                let bottom = min(blockRect.maxY, textContainerOrigin.y + next.minY - TextKitRenderer.codeBlockSpacing)
+                blockRect.size.height = max(0, bottom - blockRect.minY)
+            }
+            backgrounds.append(blockRect)
+        }
+        return backgrounds
     }
 
     override func mouseDown(with event: NSEvent) {

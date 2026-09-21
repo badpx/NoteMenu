@@ -117,7 +117,7 @@ final class EditorCoreTests: XCTestCase {
         }
         state = fresh(); state.document.paragraphs[0].kind = .codeLine
         EditorReducer.apply(.newline, to: &state)
-        XCTAssertEqual(state.document.paragraphs.map(\.kind), [.codeLine, .body])
+        XCTAssertEqual(state.document.paragraphs.map(\.kind), [.codeLine, .codeLine])
     }
 
     func testSelectionToggleAndListNumbering_K14_K16_L01_L04() {

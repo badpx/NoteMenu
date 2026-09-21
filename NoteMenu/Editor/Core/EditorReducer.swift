@@ -6,6 +6,7 @@ enum EditorCommand {
     case toggle(InlineMarks)
     case indent(Int)
     case newline
+    case exitCodeAtDocumentEnd
     case backspaceAtStart
     case replace(NSRange, EditorDocument, preserveBlocks: Bool)
 }
@@ -100,7 +101,7 @@ enum EditorReducer {
                 let next: BlockKind
                 switch paragraph.kind {
                 case .list: next = paragraph.kind
-                case .codeLine: next = paragraph.isEmpty ? .body : .codeLine
+                case .codeLine: next = .codeLine
                 default: next = .body
                 }
                 let fragment = EditorDocument(paragraphs: [Paragraph(kind: paragraph.kind), Paragraph(kind: next)])
@@ -113,10 +114,26 @@ enum EditorReducer {
                 state.session.selection.location += 1
             }
             resetInsertion(&state)
+        case .exitCodeAtDocumentEnd:
+            let position = map.position(at: selection.location)
+            guard selection.length == 0, position.index == state.document.paragraphs.count - 1,
+                  state.document.paragraphs[position.index].kind.isCode else { return false }
+            state.document.paragraphs.append(Paragraph())
+            state.session.selection = NSRange(location: state.document.length, length: 0)
+            resetInsertion(&state)
         case .backspaceAtStart:
             let position = map.position(at: selection.location)
             guard selection.length == 0, position.offset == 0 else { return false }
             let kind = state.document.paragraphs[position.index].kind
+            if kind.isCode, position.index > 0, state.document.paragraphs[position.index - 1].kind.isCode {
+                // Inside one code block, Backspace deletes the paragraph separator;
+                // it must not convert an empty code line into a body paragraph.
+                let separator = NSRange(location: selection.location - 1, length: 1)
+                state.document.replace(separator, with: .plain(""))
+                state.session.selection = NSRange(location: separator.location, length: 0)
+                resetInsertion(&state)
+                return before != state
+            }
             switch kind {
             case .body: return false
             case .list(let type, let depth): state.document.paragraphs[position.index].kind = depth > 1 ? .list(type, depth - 1) : .body

@@ -92,10 +92,10 @@ enum ClipboardCodec {
                     }
                     return
                 }
-                let font = attributes[.font] as? NSFont ?? .systemFont(ofSize: 14)
+                let font = attributes[.font] as? NSFont ?? .systemFont(ofSize: 15)
                 let traits = NSFontManager.shared.traits(of: font)
                 let mono = traits.contains(.fixedPitchFontMask) || font.isFixedPitch
-                let size = mono ? 12 : font.pointSize >= 23 ? 24 : font.pointSize >= 17 ? 18 : 14
+                let size = mono ? 14 : font.pointSize >= 21 ? 22 : font.pointSize >= 17 ? 18 : 15
                 var marks: InlineMarks = []
                 if traits.contains(.boldFontMask) { marks.insert(.bold) }
                 if traits.contains(.italicFontMask) || ((attributes[.obliqueness] as? NSNumber)?.doubleValue ?? 0) != 0 { marks.insert(.italic) }

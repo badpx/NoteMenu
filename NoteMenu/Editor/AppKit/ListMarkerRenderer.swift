@@ -3,7 +3,7 @@ import CoreText
 
 enum ListMarkerRenderer {
     static func font(for kind: ListKind) -> NSFont {
-        .systemFont(ofSize: kind == .unordered ? 8 : 14)
+        .systemFont(ofSize: kind == .unordered ? 8 : 15)
     }
     static func firstLine(_ index: Int, document: EditorDocument, map: PositionMap, view: NSTextView) -> (NSRect, CGFloat)? {
         guard let layout = view.layoutManager, let container = view.textContainer else { return nil }
@@ -37,7 +37,7 @@ enum ListMarkerRenderer {
         for index in first...last {
             guard let item = items[index], let (rect, baseline) = firstLine(index, document: document, map: map, view: view), rect.intersects(visible) else { continue }
             let font = font(for: item.kind)
-            let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.textColor]
+            let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: TextKitRenderer.textColor]
             let width = (item.marker as NSString).size(withAttributes: attrs).width
             let x = origin.x + container.lineFragmentPadding + CGFloat(item.depth) * 22 - 4 - width
             var y = origin.y + baseline - font.ascender

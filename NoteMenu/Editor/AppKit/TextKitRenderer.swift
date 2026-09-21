@@ -23,18 +23,28 @@ final class EditorLayoutManager: NSLayoutManager {
         var used = usedRect
         let font = TextKitRenderer.font(for: .plain, block: trailingKind)
         fragment.size.height = defaultLineHeight(for: font)
-        used.origin.x = CGFloat(trailingKind.list?.depth ?? 0) * 22
+        used.origin.x = trailingKind.isCode ? TextKitRenderer.codeHorizontalPadding : CGFloat(trailingKind.list?.depth ?? 0) * 22
         used.size.height = fragment.height
         super.setExtraLineFragmentRect(fragment, usedRect: used, textContainer: container)
     }
 }
 
 enum TextKitRenderer {
+    static let textColor = NSColor(srgbRed: 50 / 255, green: 50 / 255, blue: 50 / 255, alpha: 1)
+    static let codeBackgroundColor = NSColor(srgbRed: 234 / 255, green: 234 / 255, blue: 234 / 255, alpha: 1)
+    static let codeHorizontalPadding: CGFloat = 4
+    static let codeVerticalPadding: CGFloat = 2
+    static let codeBlockSpacing: CGFloat = 2
     static func paragraphStyle(_ kind: BlockKind, includeNativeLists: Bool = false) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
         style.lineSpacing = 4
         style.paragraphSpacing = 0
         style.paragraphSpacingBefore = 0
+        if kind.isCode {
+            style.headIndent = codeHorizontalPadding
+            style.firstLineHeadIndent = codeHorizontalPadding
+            style.tailIndent = -codeHorizontalPadding
+        }
         if let list = kind.list {
             style.headIndent = CGFloat(list.depth) * 22
             style.firstLineHeadIndent = style.headIndent
@@ -49,21 +59,21 @@ enum TextKitRenderer {
 
     static func font(for style: InlineStyle, block: BlockKind) -> NSFont {
         let code = block.isCode || style.marks.contains(.code) || style.font?.monospaced == true
-        var size: CGFloat = 14
+        var size: CGFloat = 15
         var bold = style.marks.contains(.bold)
         if case .heading(let level) = block {
-            size = level == 1 ? 24 : level == 2 ? 18 : 14
+            size = level == 1 ? 22 : level == 2 ? 18 : 15
             bold = true
         }
         if let intent = style.font { size = CGFloat(intent.size) }
-        if code { size = 12 }
+        if code { size = 14 }
         let base = code ? (NSFont(name: "Courier", size: size) ?? .monospacedSystemFont(ofSize: size, weight: .regular)) : .systemFont(ofSize: size)
         return bold ? NSFontManager.shared.convert(base, toHaveTrait: .boldFontMask) : base
     }
 
     static func attributes(_ style: InlineStyle, block: BlockKind, exchange: Bool = false) -> [NSAttributedString.Key: Any] {
         var result: [NSAttributedString.Key: Any] = [
-            .font: font(for: style, block: block), .foregroundColor: NSColor.textColor,
+            .font: font(for: style, block: block), .foregroundColor: exchange ? NSColor.textColor : textColor,
             .paragraphStyle: paragraphStyle(block, includeNativeLists: exchange),
         ]
         if style.marks.contains(.italic) { result[.obliqueness] = 0.25 }
@@ -100,6 +110,7 @@ enum TextKitRenderer {
         for i in document.paragraphs.indices {
             output.append(renderParagraph(document.paragraphs[i], assets: document.assets, separator: i < document.paragraphs.count - 1, exchange: exchange))
         }
+        if !exchange { applyCodePadding(document, to: output) }
         return output
     }
 
@@ -150,7 +161,22 @@ enum TextKitRenderer {
         updateGeometry(document, view: view)
     }
 
+    private static func applyCodePadding(_ document: EditorDocument, to storage: NSMutableAttributedString) {
+        // Block boundary spacing must be identical in full and incremental projections.
+        let map = PositionMap(document)
+        storage.beginEditing()
+        for i in document.paragraphs.indices where document.paragraphs[i].kind.isCode {
+            let style = paragraphStyle(.codeLine).mutableCopy() as! NSMutableParagraphStyle
+            if i == 0 || !document.paragraphs[i - 1].kind.isCode { style.paragraphSpacingBefore = codeVerticalPadding + (i > 0 ? codeBlockSpacing : 0) }
+            if i == document.paragraphs.count - 1 || !document.paragraphs[i + 1].kind.isCode { style.paragraphSpacing = codeVerticalPadding + style.lineSpacing + (i + 1 < document.paragraphs.count ? codeBlockSpacing : 0) }
+            let range = map.range(of: i, includingSeparator: true)
+            if range.length > 0 { storage.addAttribute(.paragraphStyle, value: style, range: range) }
+        }
+        storage.endEditing()
+    }
+
     static func updateGeometry(_ document: EditorDocument, view: NSTextView) {
+        if let storage = view.textStorage { applyCodePadding(document, to: storage) }
         let markers = ListResolver.resolve(document)
         let maxWidth = markers.values.map { ($0.marker as NSString).size(withAttributes: [.font: ListMarkerRenderer.font(for: $0.kind)]).width }.max() ?? 0
         view.textContainerInset = NSSize(width: max(6, maxWidth + 4 - 22), height: 8)

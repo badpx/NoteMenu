@@ -127,7 +127,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         newNoteItem.keyEquivalentModifierMask = [.control, .command]
         newNoteItem.target = self
         menu.addItem(newNoteItem)
-        menu.addItem(.separator())
 
         let openNotesItem = NSMenuItem(
             title: "打开备忘录",
@@ -147,8 +146,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         launchItem.target = self
         launchItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(launchItem)
-
-        menu.addItem(.separator())
 
         let quitItem = NSMenuItem(
             title: "退出 NoteMenu",

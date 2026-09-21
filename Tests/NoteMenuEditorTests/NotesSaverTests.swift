@@ -3,6 +3,21 @@ import XCTest
 @testable import NoteMenuEditor
 
 final class NotesSaverTests: XCTestCase {
+    func testInProcessScriptRunsOffMainThreadAndPreservesErrors() {
+        let done = DispatchSemaphore(value: 0)
+        DispatchQueue.global(qos: .userInitiated).async {
+            defer { done.signal() }
+            XCTAssertFalse(Thread.isMainThread)
+            do {
+                XCTAssertEqual(try NotesSaver.runScript("return \"后台执行成功\""), "后台执行成功")
+                XCTAssertThrowsError(try NotesSaver.runScript("error \"permission probe\" number -10004")) { error in
+                    XCTAssertEqual((error as? NotesSaver.ScriptError)?.number, -10004)
+                }
+            } catch { XCTFail("\(error)") }
+        }
+        XCTAssertEqual(done.wait(timeout: .now() + 15), .success)
+    }
+
     func image() -> NSImage {
         let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 2, pixelsHigh: 2,
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!

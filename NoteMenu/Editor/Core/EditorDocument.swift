@@ -182,7 +182,8 @@ struct EditorDocument: Codable, Equatable {
             for run in paragraph.runs {
                 guard !run.text.contains("\n"), !run.text.contains("\r"),
                       run.style.marks.subtracting(.supported).isEmpty else { throw EditorDataError.invalidDocument }
-                if let font = run.style.font, ![12, 14, 18, 24].contains(font.size) { throw EditorDataError.invalidDocument }
+                // Keep the old 12/24pt tiers valid for existing drafts and clipboard fragments.
+                if let font = run.style.font, ![12, 14, 15, 16, 18, 22, 24].contains(font.size) { throw EditorDataError.invalidDocument }
                 if let id = run.assetID {
                     guard run.text == "\u{FFFC}", let asset = assets[id], !asset.data.isEmpty,
                           asset.width.isFinite, asset.height.isFinite, asset.width > 0, asset.height > 0 else {

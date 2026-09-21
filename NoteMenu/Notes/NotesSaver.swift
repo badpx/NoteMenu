@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import OSAKit
 
 /// Saves through Notes' AppleScript API without changing focus or using the clipboard.
 enum NotesSaver {
@@ -22,39 +23,21 @@ enum NotesSaver {
     }
 
     static func runScript(_ source: String) throws -> String {
-        // NSAppleScript is main-thread-only. Background saves use the same script/API
-        // through the system interpreter, keeping UI drawing and input responsive.
-        if !Thread.isMainThread { return try runScriptProcess(source) }
-        guard let script = NSAppleScript(source: source) else {
-            throw ScriptError(number: 0, message: "无法创建备忘录保存脚本")
+        guard let language = OSALanguage(forName: "AppleScript"), language.isThreadSafe else {
+            throw ScriptError(number: 0, message: "系统 AppleScript 引擎不支持后台执行")
         }
+        // Own the language instance for this invocation: never share a script component
+        // across threads. Apple events originate from NoteMenu, using its sandbox/TCC
+        // permissions, rather than from an external osascript process.
+        let instance = OSALanguageInstance(language: language)
+        let script = OSAScript(source: source, from: nil, languageInstance: instance, using: [])
         var error: NSDictionary?
         let result = script.executeAndReturnError(&error)
         if let error {
-            throw ScriptError(number: error[NSAppleScript.errorNumber] as? Int ?? 0,
-                              message: error[NSAppleScript.errorMessage] as? String ?? "备忘录保存失败")
+            throw ScriptError(number: error[OSAScriptErrorNumber] as? Int ?? 0,
+                              message: error[OSAScriptErrorMessage] as? String ?? "备忘录保存失败")
         }
-        return result.stringValue ?? ""
-    }
-
-    private static func runScriptProcess(_ source: String) throws -> String {
-        let file = FileManager.default.temporaryDirectory.appendingPathComponent("NoteMenu-script-\(UUID().uuidString).applescript")
-        defer { try? FileManager.default.removeItem(at: file) }
-        try source.write(to: file, atomically: true, encoding: .utf8)
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = [file.path]
-        let output = Pipe()
-        process.standardOutput = output
-        process.standardError = output
-        try process.run()
-        let data = output.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        let text = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-        guard process.terminationStatus == 0 else {
-            throw ScriptError(number: text.contains("(-1743)") ? -1743 : 0, message: text)
-        }
-        return text
+        return result?.stringValue ?? ""
     }
 
     static func save(_ content: NoteContent) -> SaveResult {

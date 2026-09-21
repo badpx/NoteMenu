@@ -171,7 +171,7 @@ final class EditorAppKitTests: XCTestCase {
             .paragraphStyle: style, .underlineStyle: 1, .strikethroughStyle: 1, .link: "https://example.com", .foregroundColor: NSColor.red])
         let fragment = ClipboardCodec.importRich(rich)
         XCTAssertEqual(fragment.paragraphs[0].kind, .list(.unordered, 2))
-        XCTAssertEqual(fragment.paragraphs[0].runs[0].style.font?.size, 24)
+        XCTAssertEqual(fragment.paragraphs[0].runs[0].style.font?.size, 22)
         bridge.load(fragment)
         bridge.select(NSRange(location: 0, length: fragment.length))
         bridge.copy(to: pasteboard)
@@ -183,12 +183,12 @@ final class EditorAppKitTests: XCTestCase {
     }
 
     func testFontTiers_P02_L10() {
-        for (size, expected) in [(16, 14), (17, 18), (22, 18), (23, 24)] {
+        for (size, expected) in [(16, 15), (17, 18), (20, 18), (21, 22), (22, 22)] {
             let rich = NSAttributedString(string: "x", attributes: [.font: NSFont.systemFont(ofSize: CGFloat(size))])
             XCTAssertEqual(ClipboardCodec.importRich(rich).paragraphs[0].runs[0].style.font?.size, expected)
         }
         let mono = NSAttributedString(string: "x", attributes: [.font: NSFont(name: "Courier", size: 24)!])
-        XCTAssertEqual(ClipboardCodec.importRich(mono).paragraphs[0].runs[0].style.font, FontIntent(size: 12, monospaced: true))
+        XCTAssertEqual(ClipboardCodec.importRich(mono).paragraphs[0].runs[0].style.font, FontIntent(size: 14, monospaced: true))
     }
 
     func testImageRepresentationsAttachmentsAndUndo_P04_P08_M06_E06() {
@@ -293,7 +293,7 @@ final class EditorAppKitTests: XCTestCase {
         let long = EditorDocument(paragraphs: (0..<110).map { _ in Paragraph(kind: .list(.ordered, 1), runs: [InlineRun(text: "item")]) })
         bridge.load(long)
         XCTAssertEqual(bridge.listItems[99]?.marker, "100.")
-        let width = ("100." as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 14)]).width
+        let width = ("100." as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 15)]).width
         XCTAssertGreaterThanOrEqual(view.textContainerOrigin.x + view.textContainer!.lineFragmentPadding + 22 - 4 - width, 0)
     }
 
@@ -592,6 +592,124 @@ final class EditorAppKitTests: XCTestCase {
             XCTAssertEqual(bridge.document.paragraphs[1].text, "中")
         }
     }
+    func testCodeBackgroundDoesNotResizeWhenExitingOrUndoingExit() throws {
+        for blankLines in [0, 1, 3] {
+            bridge.load(EditorDocument(paragraphs: [
+                Paragraph(runs: [InlineRun(text: "上文")]),
+                Paragraph(kind: .codeLine, runs: [InlineRun(text: "let x = 1")])
+            ] + (0..<blankLines).map { _ in Paragraph(kind: .codeLine) }))
+            bridge.select(NSRange(location: bridge.document.length, length: 0))
+            let before = try XCTUnwrap(view.codeBackgroundRects().first)
+            view.moveDown(nil)
+            let after = try XCTUnwrap(view.codeBackgroundRects().first)
+            XCTAssertEqual(after.minY, before.minY, accuracy: 0.01)
+            XCTAssertEqual(after.height, before.height, accuracy: 0.01)
+            view.undo(nil)
+            XCTAssertEqual(try XCTUnwrap(view.codeBackgroundRects().first).height, before.height, accuracy: 0.01)
+            view.redo(nil)
+            XCTAssertEqual(try XCTUnwrap(view.codeBackgroundRects().first).height, before.height, accuracy: 0.01)
+        }
+    }
+
+    func testCodeBackgroundLeavesSpaceAroundNeighboringBody() throws {
+        for tail in ["正文", ""] {
+            bridge.load(EditorDocument(paragraphs: [
+                Paragraph(runs: [InlineRun(text: "上文")]),
+                Paragraph(kind: .codeLine, runs: [InlineRun(text: "let x = 1")]),
+                Paragraph(kind: .codeLine), Paragraph(kind: .codeLine),
+                Paragraph(runs: tail.isEmpty ? [] : [InlineRun(text: tail)])
+            ]))
+            let rect = try XCTUnwrap(view.codeBackgroundRects().first)
+            let layout = try XCTUnwrap(view.layoutManager)
+            let map = bridge.positionMap
+            let top = layout.lineFragmentRect(forGlyphAt: 0, effectiveRange: nil)
+            let bottom = tail.isEmpty ? layout.extraLineFragmentRect
+                : layout.lineFragmentRect(forGlyphAt: layout.glyphIndexForCharacter(at: map.starts[4]), effectiveRange: nil)
+            XCTAssertGreaterThanOrEqual(rect.minY - view.textContainerOrigin.y - top.maxY, 2)
+            XCTAssertGreaterThanOrEqual(view.textContainerOrigin.y + bottom.minY - rect.maxY, 2)
+            let glyph = layout.glyphIndexForCharacter(at: map.starts[1])
+            let last = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+            let font = TextKitRenderer.font(for: .plain, block: .codeLine)
+            let textBottom = view.textContainerOrigin.y + last.minY + layout.location(forGlyphAt: glyph).y - font.descender
+            XCTAssertGreaterThanOrEqual(rect.maxY + 0.01, textBottom + TextKitRenderer.codeVerticalPadding)
+            assertProjection()
+        }
+    }
+
+    func testBackspaceInTrailingAndMiddleCodeBlankLines() {
+        for line in [1, 2, 3] {
+            let original = EditorDocument(paragraphs: [
+                Paragraph(kind: .codeLine, runs: [InlineRun(text: "code")]),
+                Paragraph(kind: .codeLine), Paragraph(kind: .codeLine), Paragraph(kind: .codeLine)
+            ])
+            bridge.load(original)
+            let oldLocation = bridge.positionMap.starts[line]
+            bridge.select(NSRange(location: oldLocation, length: 0))
+            view.deleteBackward(nil)
+            XCTAssertEqual(bridge.document.text, "code\n\n")
+            XCTAssertEqual(bridge.document.paragraphs.map(\.kind), [.codeLine, .codeLine, .codeLine])
+            XCTAssertEqual(view.selectedRange(), NSRange(location: oldLocation - 1, length: 0))
+            assertProjection()
+            view.undo(nil)
+            XCTAssertEqual(bridge.document.paragraphs, original.paragraphs)
+            XCTAssertEqual(view.selectedRange().location, oldLocation)
+            view.redo(nil)
+            XCTAssertEqual(view.selectedRange().location, oldLocation - 1)
+            view.insertText("x", replacementRange: view.selectedRange())
+            XCTAssertTrue(bridge.document.paragraphs.allSatisfy { $0.kind.isCode })
+            XCTAssertEqual(bridge.document.paragraphs[line - 1].text, line == 1 ? "codex" : "x")
+            assertProjection()
+        }
+    }
+
+    func testBackspaceMergesNonemptyCodeLinesWithoutLosingText() {
+        bridge.load(EditorDocument(paragraphs: [
+            Paragraph(kind: .codeLine, runs: [InlineRun(text: "a")]),
+            Paragraph(kind: .codeLine, runs: [InlineRun(text: "b")]), Paragraph()
+        ]))
+        bridge.select(NSRange(location: 2, length: 0))
+        view.deleteBackward(nil)
+        XCTAssertEqual(bridge.document.text, "ab\n")
+        XCTAssertEqual(bridge.document.paragraphs.map(\.kind), [.codeLine, .body])
+        XCTAssertEqual(view.selectedRange().location, 1)
+        assertProjection()
+    }
+
+    func testCodeBlankLinesAndDownArrowExitUndo() {
+        bridge.load(EditorDocument(paragraphs: [Paragraph(kind: .codeLine)]))
+        view.insertNewline(nil)
+        view.insertNewline(nil)
+        XCTAssertEqual(bridge.document.paragraphs.map(\.kind), [.codeLine, .codeLine, .codeLine])
+        let code = bridge.document
+        view.moveDown(nil)
+        XCTAssertEqual(bridge.document.paragraphs.map(\.kind), [.codeLine, .codeLine, .codeLine, .body])
+        XCTAssertEqual(view.selectedRange().location, bridge.document.length)
+        view.undo(nil)
+        XCTAssertEqual(bridge.document.paragraphs, code.paragraphs)
+        view.redo(nil)
+        view.insertText("正文", replacementRange: view.selectedRange())
+        XCTAssertEqual(bridge.document.paragraphs.last?.kind, .body)
+        XCTAssertEqual(bridge.document.paragraphs.last?.text, "正文")
+        assertProjection()
+    }
+
+    func testCodeDownArrowRespectsWrappedLinesAndExistingBody() {
+        let text = String(repeating: "abcdefghij ", count: 30)
+        bridge.load(EditorDocument(paragraphs: [Paragraph(kind: .codeLine, runs: [InlineRun(text: text)])]))
+        bridge.select(NSRange(location: 0, length: 0))
+        view.moveDown(nil)
+        XCTAssertEqual(bridge.document.paragraphs.count, 1)
+        XCTAssertGreaterThan(view.selectedRange().location, 0)
+        bridge.select(NSRange(location: bridge.document.length, length: 0))
+        view.moveDown(nil)
+        XCTAssertEqual(bridge.document.paragraphs.map(\.kind), [.codeLine, .body])
+        let before = bridge.document
+        bridge.select(NSRange(location: text.utf16.count, length: 0))
+        view.moveDown(nil)
+        XCTAssertEqual(bridge.document.paragraphs, before.paragraphs)
+        XCTAssertEqual(view.selectedRange().location, bridge.document.length)
+    }
+
     func testCodeTabIndentsWholeLineAndKeepsCaretWithText() {
         type("abc")
         bridge.execute(.block(.codeLine))
