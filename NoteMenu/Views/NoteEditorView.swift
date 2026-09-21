@@ -55,7 +55,7 @@ struct NoteEditorView: View {
         }
     }
 
-    /// 边缘拖动热区：左、右、下边缘及两个底角。顶部吸附菜单栏，不支持调整。
+    /// 边缘拖动热区：左、右、下边缘及两个底角。顶部用于拖动窗口位置。
     private var resizeHandles: some View {
         ZStack {
             HStack(spacing: 0) {
@@ -114,7 +114,9 @@ struct NoteEditorView: View {
                     Image(systemName: isPinned ? "pin.fill" : "pin")
                         .font(.system(size: 11))
                         .frame(width: 22, height: 22)
-                        .foregroundStyle(isPinned ? Color.accentColor : Color.secondary)
+                        .foregroundStyle(isPinned
+                            ? Color(red: 251 / 255, green: 211 / 255, blue: 46 / 255)
+                            : Color.secondary)
                 }
                 .buttonStyle(.borderless)
                 .help(isPinned ? "取消置顶" : "置顶")

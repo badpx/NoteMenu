@@ -36,6 +36,15 @@ private final class NotePanel: NSPanel {
     }
 
     override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown, attachedSheet == nil, let contentView {
+            // Match the 36pt custom title bar; leave side resize handles and Pin/Close untouched.
+            let dragRect = NSRect(x: 6, y: contentView.bounds.height - 36,
+                                  width: max(0, contentView.bounds.width - 78), height: 36)
+            if dragRect.contains(event.locationInWindow) {
+                performDrag(with: event)
+                return
+            }
+        }
         super.sendEvent(event)
         // NSTextView 会在事件分发中把自己的 I-beam 盖过 cursorRect 的结果，
         // 因此在 mouseMoved/cursorUpdate 分发结束后统一按鼠标位置裁定光标：
@@ -123,7 +132,7 @@ private extension NSCursor {
 }
 
 /// 浮窗边缘拖动手柄：由 NoteEditorView 的边缘热区驱动，调整浮窗尺寸并回调持久化。
-/// 只支持左、右、下三个方向——顶部吸附在菜单栏图标下方，不参与调整。
+/// 只支持左、右、下三个方向，顶部保留给标题栏拖动。
 final class PanelResizeHandler {
     struct Edges: OptionSet {
         let rawValue: Int
@@ -186,9 +195,11 @@ final class PanelController {
     private let resizeHandler: PanelResizeHandler
     private var globalEventMonitor: Any?
     private var localEventMonitor: Any?
+    private var moveObserver: NSObjectProtocol?
     private weak var anchorButton: NSStatusBarButton?
 
     private static let panelSizeKey = "panelSize"
+    private static let panelOriginKey = "panelOrigin"
     private static let defaultPanelSize = NSSize(width: 340, height: 400)
 
     /// 置顶时点击面板外部不自动收起。
@@ -212,12 +223,16 @@ final class PanelController {
         panel.isOpaque = false
         panel.hasShadow = true
         panel.isMovableByWindowBackground = false
+        panel.isMovable = true
         panel.animationBehavior = .utilityWindow
         self.panel = panel
 
         let resizeHandler = PanelResizeHandler(panel: panel)
-        resizeHandler.onResizeEnd = { size in
+        resizeHandler.onResizeEnd = { [weak panel] size in
             UserDefaults.standard.set(NSStringFromSize(size), forKey: Self.panelSizeKey)
+            if UserDefaults.standard.string(forKey: Self.panelOriginKey) != nil, let panel {
+                UserDefaults.standard.set(NSStringFromPoint(panel.frame.origin), forKey: Self.panelOriginKey)
+            }
         }
         self.resizeHandler = resizeHandler
 
@@ -237,6 +252,19 @@ final class PanelController {
         hostingView.autoresizingMask = [.width, .height]
         container.addSubview(hostingView)
         panel.contentView = container
+        // performDrag can return before the final window frame is applied. Persist actual move
+        // notifications instead of assuming its return marks the end of the drag.
+        moveObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didMoveNotification, object: panel, queue: .main
+        ) { [weak panel] _ in
+            guard let panel, panel.isVisible else { return }
+            UserDefaults.standard.set(NSStringFromPoint(panel.frame.origin), forKey: Self.panelOriginKey)
+        }
+    }
+
+    deinit {
+        if let moveObserver { NotificationCenter.default.removeObserver(moveObserver) }
+        stopEventMonitors()
     }
 
     func toggle(relativeTo button: NSStatusBarButton) {
@@ -257,12 +285,37 @@ final class PanelController {
     }
 
     func close() {
+        // Also capture the final position before hiding, including a just-completed drag.
+        if panel.isVisible {
+            UserDefaults.standard.set(NSStringFromPoint(panel.frame.origin), forKey: Self.panelOriginKey)
+        }
         stopEventMonitors()
         panel.orderOut(nil)
     }
 
     private func positionPanel(relativeTo button: NSStatusBarButton) {
         guard let buttonWindow = button.window else { return }
+        if let stored = UserDefaults.standard.string(forKey: Self.panelOriginKey) {
+            let origin = NSPointFromString(stored)
+            if origin.x.isFinite, origin.y.isFinite {
+                let savedFrame = NSRect(origin: origin, size: panel.frame.size)
+                let screen = NSScreen.screens.filter { $0.visibleFrame.intersects(savedFrame) }.max {
+                    let a = $0.visibleFrame.intersection(savedFrame)
+                    let b = $1.visibleFrame.intersection(savedFrame)
+                    return a.width * a.height < b.width * b.height
+                } ?? buttonWindow.screen ?? NSScreen.main
+                if let screen {
+                    // Keep the title bar reachable after a monitor is unplugged or its resolution changes.
+                    let visible = screen.visibleFrame.insetBy(dx: 8, dy: 8)
+                    let size = NSSize(width: min(panel.frame.width, visible.width),
+                                      height: min(panel.frame.height, visible.height))
+                    let adjusted = NSPoint(x: min(max(origin.x, visible.minX), visible.maxX - size.width),
+                                           y: min(max(origin.y, visible.minY), visible.maxY - size.height))
+                    panel.setFrame(NSRect(origin: adjusted, size: size), display: false)
+                    return
+                }
+            }
+        }
         let buttonRect = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
         let panelSize = panel.frame.size
         var origin = NSPoint(

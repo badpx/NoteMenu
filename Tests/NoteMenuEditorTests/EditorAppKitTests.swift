@@ -34,6 +34,21 @@ final class EditorAppKitTests: XCTestCase {
         XCTAssertEqual(actual, reference, file: file, line: line)
     }
 
+    func testCaretHeightDoesNotGrowWithParagraphSpacing() {
+        for size: CGFloat in [14, 15, 22] {
+            let font = NSFont.systemFont(ofSize: size)
+            view.typingAttributes = [.font: font]
+            let natural = view.layoutManager!.defaultLineHeight(for: font)
+            for spacing: CGFloat in [0, 4, 10] {
+                let rect = NSRect(x: 12, y: 20, width: 1, height: natural + spacing)
+                let caret = view.insertionPointDrawingRect(rect)
+                XCTAssertEqual(caret.height, natural)
+                XCTAssertEqual(caret.origin, rect.origin)
+                XCTAssertEqual(caret.width, rect.width + 1)
+            }
+        }
+    }
+
     func testPickedImagesInsertAtSelectionAndUndoTogether() {
         type("前文后文")
         bridge.select(NSRange(location: 2, length: 0))

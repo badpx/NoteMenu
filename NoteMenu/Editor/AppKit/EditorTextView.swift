@@ -22,6 +22,7 @@ final class EditorTextView: NSTextView {
         view.isAutomaticSpellingCorrectionEnabled = false
         view.font = .systemFont(ofSize: 15)
         view.textColor = TextKitRenderer.textColor
+        view.insertionPointColor = NSColor(srgbRed: 225 / 255, green: 177 / 255, blue: 28 / 255, alpha: 1)
         view.drawsBackground = false
         view.isVerticallyResizable = true
         view.isHorizontallyResizable = false
@@ -202,6 +203,26 @@ final class EditorTextView: NSTextView {
     }
 
     override func changeFont(_ sender: Any?) { /* All formatting goes through editor commands. */ }
+    func insertionPointDrawingRect(_ rect: NSRect) -> NSRect {
+        let font = typingAttributes[.font] as? NSFont ?? self.font ?? NSFont.systemFont(ofSize: 15)
+        var result = rect
+        // Native insertion rectangles include paragraph/line leading. Keep the visible caret
+        // at the font's natural line height without changing layout or IME candidate coordinates.
+        let height = layoutManager?.defaultLineHeight(for: font) ?? ceil(font.ascender - font.descender)
+        result.size.height = min(rect.height, height)
+        result.size.width = rect.width + 1
+        return result
+    }
+
+    override func drawInsertionPoint(in rect: NSRect, color: NSColor, turnedOn flag: Bool) {
+        super.drawInsertionPoint(in: insertionPointDrawingRect(rect), color: insertionPointColor, turnedOn: flag)
+    }
+
+    override func setNeedsDisplay(_ invalidRect: NSRect) {
+        // Native caret invalidation uses its original width; include the extra painted point.
+        super.setNeedsDisplay(invalidRect.insetBy(dx: -1, dy: 0))
+    }
+
     override func changeColor(_ sender: Any?) {}
     @objc func toggleUnderline(_ sender: Any?) { bridge?.execute(.toggle(.underline), name: "下划线") }
 

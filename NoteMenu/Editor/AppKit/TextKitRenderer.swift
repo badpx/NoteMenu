@@ -37,8 +37,8 @@ enum TextKitRenderer {
     static let codeBlockSpacing: CGFloat = 2
     static func paragraphStyle(_ kind: BlockKind, includeNativeLists: Bool = false) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
-        style.lineSpacing = 4
-        style.paragraphSpacing = 0
+        style.lineSpacing = kind == .body || kind.list != nil ? 6 : 4
+        style.paragraphSpacing = kind == .body || kind.list != nil ? 4 : 0
         style.paragraphSpacingBefore = 0
         if kind.isCode {
             style.headIndent = codeHorizontalPadding
