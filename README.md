@@ -38,7 +38,9 @@ open build/Build/Products/Debug/NoteMenu.app
 - 写入备忘录：通过 AppleScript（`make new note` / `make new attachment`）实现，正文直接从模型导出为规范白名单 HTML，图片按顺序追加为附件
 - 草稿：应用支持目录下的 `NoteMenu/draft-v1.json` 原子保存模型、输入格式和图片；旧 `draft.rtfd` 迁移源会保留，清空时移为备份以免旧稿恢复
 - 沙盒：开启 App Sandbox，通过 `com.apple.security.temporary-exception.apple-events` 获得控制备忘录的权限
-- 图标：彩色应用图标原图保存在 `assets/notemenu-app-icon.png`，各尺寸资源位于 `NoteMenu/Resources/Assets.xcassets/AppIcon.appiconset`；菜单栏图标原图保存在 `assets/notemenu-status-icon.png`，采用白色便笺与透明文字、笔形镂空，生成 18pt 的 1x/2x 资源，以 template 模式适应深浅色背景
+- 应用图标：使用 `NoteMenu/Resources/AppIcon.icon`，可直接用 Xcode 附带的 Icon Composer 打开。黄色背景由 Composer 定义，`Assets/note.svg` 是文字与笔形镂空的便笺矢量层；外轮廓由系统生成，不在素材里预先添加圆角底板或透明边距。
+- 图标兼容：使用 Xcode 26 构建，macOS 26 使用分层图标，旧版 macOS 使用 Xcode 自动生成的静态回退图标（包含 `AppIcon.icns`），最低系统要求保持 macOS 13.0。原 PNG 和 `AppIcon.appiconset` 保留作设计参考；存在同名 `.icon` 时，Xcode 优先使用 Composer 工程，并自行生成回退图，而不是直接采用原 PNG。旧系统的实际显示效果仍需在对应系统上验证。
+- 菜单栏图标：原图保存在 `assets/notemenu-status-icon.png`，采用白色便笺与透明文字、笔形镂空，生成 18pt 的 1x/2x 资源，以 template 模式适应深浅色背景。
 
 ## 编辑器测试
 

@@ -152,7 +152,7 @@ struct NoteEditorView: View {
     }
 
     private var toolbar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 4) {
             Menu {
                 blockButton("一级标题", kind: .heading(1))
                 blockButton("正文", kind: .body)
@@ -162,7 +162,7 @@ struct NoteEditorView: View {
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
-            .frame(width: 22)
+            .modifier(FormatControlHover())
             .help("段落样式")
             Menu {
                 Button(action: model.toggleBold) { Label("加粗", systemImage: model.isActive(.bold) ? "checkmark" : "bold") }
@@ -175,7 +175,7 @@ struct NoteEditorView: View {
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
-            .frame(width: 30)
+            .modifier(FormatControlHover())
             .help("字体样式")
 
             Button {
@@ -185,6 +185,7 @@ struct NoteEditorView: View {
                     .foregroundStyle(model.selectedBlock?.list?.kind == .unordered ? Color.accentColor : Color.secondary)
             }
             .buttonStyle(.borderless)
+            .modifier(FormatControlHover())
             .help("项目符号列表")
 
             Button {
@@ -194,6 +195,7 @@ struct NoteEditorView: View {
                     .foregroundStyle(model.selectedBlock?.list?.kind == .ordered ? Color.accentColor : Color.secondary)
             }
             .buttonStyle(.borderless)
+            .modifier(FormatControlHover())
             .help("编号列表")
 
             if model.attachmentCount > 0 {
@@ -280,5 +282,23 @@ struct NoteEditorView: View {
             alert.addButton(withTitle: "好")
             alert.runModal()
         }
+    }
+}
+
+private struct FormatControlHover: ViewModifier {
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovered = false
+
+    func body(content: Content) -> some View {
+        content
+            .frame(width: 28, height: 28)
+            .background {
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(isHovered && isEnabled
+                        ? Color.primary.opacity(0.08)
+                        : Color.clear)
+            }
+            .contentShape(Rectangle())
+            .onHover { isHovered = $0 }
     }
 }
