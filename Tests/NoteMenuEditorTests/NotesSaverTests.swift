@@ -132,4 +132,76 @@ final class NotesSaverTests: XCTestCase {
         XCTAssertEqual(checks, 2)
         XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: root.path).isEmpty)
     }
+
+    func testCatalogParsesAccountsFoldersAndSkipsMalformedLines() {
+        let output = "iCloud\tx-coredata://A/ICFolder/p1\t收件箱\n" +
+            "iCloud\tx-coredata://A/ICFolder/p2\t工作 笔记\n" +
+            "On My Mac\tx-coredata://B/ICFolder/p9\t本地\n" +
+            "broken line\n" +
+            "iCloud\t\t缺 ID\n"
+        XCTAssertEqual(FolderCatalog.parse(output), [
+            NotesFolder(id: "x-coredata://A/ICFolder/p1", name: "收件箱", accountName: "iCloud"),
+            NotesFolder(id: "x-coredata://A/ICFolder/p2", name: "工作 笔记", accountName: "iCloud"),
+            NotesFolder(id: "x-coredata://B/ICFolder/p9", name: "本地", accountName: "On My Mac"),
+        ])
+        XCTAssertEqual(FolderCatalog.parse(""), [])
+    }
+
+    func testCatalogFetchRunsScriptAndParsesResult() throws {
+        var script = ""
+        let folders = try FolderCatalog.fetch(execute: { script = $0; return "iCloud\tx-coredata://A/ICFolder/p1\t收件箱\n" })
+        XCTAssertTrue(script.contains("folders of acc"))
+        XCTAssertEqual(folders, [NotesFolder(id: "x-coredata://A/ICFolder/p1", name: "收件箱", accountName: "iCloud")])
+    }
+
+    func testMakeScriptTargetsFolderIDWithEscaping() {
+        let script = NotesSaver.makeScript(bodyHTML: "<div>正文</div>", folderID: "x-coredata://A/ICFolder/p\"1\\")
+        XCTAssertTrue(script.contains("make new note at folder id \"x-coredata://A/ICFolder/p\\\"1\\\\\""))
+        XCTAssertFalse(script.contains("default folder"))
+        XCTAssertTrue(NotesSaver.makeScript(bodyHTML: "<div>正文</div>").contains("default folder of default account"))
+    }
+
+    func testSaveFallsBackToDefaultFolderWhenTargetIsGone() {
+        var calls: [String] = []
+        var cleared = false
+        let result = NotesSaver.save(.init(bodyHTML: "<div>正文</div>", images: []), execute: { script in
+            calls.append(script)
+            if script.contains("folder id") {
+                throw NotesSaver.ScriptError(number: -1728, message: "Can't get folder")
+            }
+            return "test-note"
+        }, folderID: "x-coredata://A/ICFolder/p1", onInvalidFolder: { cleared = true })
+        XCTAssertEqual(result, .success)
+        XCTAssertTrue(cleared)
+        XCTAssertEqual(calls.count, 2)
+        XCTAssertTrue(calls[0].contains("folder id \"x-coredata://A/ICFolder/p1\""))
+        XCTAssertTrue(calls[1].contains("default folder of default account"))
+    }
+
+    func testSaveDoesNotFallBackOnOtherErrors() {
+        var calls = 0
+        var cleared = false
+        let result = NotesSaver.save(.init(bodyHTML: "<div>正文</div>", images: []), execute: { _ in
+            calls += 1
+            throw NotesSaver.ScriptError(number: -1743, message: "Not authorized")
+        }, folderID: "x-coredata://A/ICFolder/p1", onInvalidFolder: { cleared = true })
+        guard case .unauthorized = result else { return XCTFail("Must be unauthorized") }
+        XCTAssertFalse(cleared)
+        XCTAssertEqual(calls, 1)
+    }
+
+    func testTargetFolderPersistsAcrossDefaultsRoundTrip() {
+        let suiteName = "NoteMenuTests.\(UUID().uuidString)"
+        let suite = UserDefaults(suiteName: suiteName)!
+        defer { suite.removePersistentDomain(forName: suiteName) }
+        FolderCatalog.defaults = suite
+        defer { FolderCatalog.defaults = .standard }
+        XCTAssertNil(FolderCatalog.target)
+        let folder = NotesFolder(id: "x-coredata://A/ICFolder/p1", name: "收件箱", accountName: "iCloud")
+        FolderCatalog.target = folder
+        XCTAssertEqual(FolderCatalog.target, folder)
+        FolderCatalog.target = nil
+        XCTAssertNil(FolderCatalog.target)
+        XCTAssertNil(suite.string(forKey: "NoteMenu.targetFolder.id"))
+    }
 }

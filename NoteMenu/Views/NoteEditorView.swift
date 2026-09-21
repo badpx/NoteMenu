@@ -7,6 +7,14 @@ struct NoteEditorView: View {
     @State private var isPinned: Bool
     @State private var isSaveHovered = false
     @State private var showSavedNotice = false
+    @State private var folders: [NotesFolder] = []
+    @State private var targetFolder: NotesFolder? = FolderCatalog.target
+    @State private var catalogState: CatalogState = .loading
+
+    private enum CatalogState {
+        case loading, loaded
+        case failed(message: String, unauthorized: Bool)
+    }
 
     private let resizeHandler: PanelResizeHandler
     private let onClose: () -> Void
@@ -52,6 +60,7 @@ struct NoteEditorView: View {
                 alert.informativeText = message
                 alert.runModal()
             }
+            reloadCatalog()
         }
     }
 
@@ -214,6 +223,27 @@ struct NoteEditorView: View {
 
             Spacer()
 
+            Menu {
+                switch catalogState {
+                case .loading:
+                    Text("正在读取备忘录目录…")
+                case .failed(let message, let unauthorized):
+                    Button("读取目录失败，点按重试") { retryCatalog(message: message, unauthorized: unauthorized) }
+                case .loaded:
+                    folderPickerItems
+                }
+                Divider()
+                Button("重新载入目录") { reloadCatalog() }
+            } label: {
+                Image(systemName: "folder")
+                    .foregroundStyle(targetFolder == nil ? Color.secondary : Color.accentColor)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .modifier(FormatControlHover())
+            .help(targetFolder.map { "保存目录：\($0.name)" } ?? "保存目录：默认文件夹")
+            .accessibilityLabel("选择保存目录")
+
             Button(action: { model.bridge.requestSave() }) {
                 Image("SaveNote")
                     .renderingMode(.template)
@@ -232,11 +262,71 @@ struct NoteEditorView: View {
             .onHover { isSaveHovered = $0 }
             .animation(.easeOut(duration: 0.12), value: isSaveHovered)
             .accessibilityLabel("存至备忘录")
-            .help("存至备忘录(⌘ + Enter)")
+            .help(targetFolder.map { "存至备忘录：\($0.name) (⌘ + Enter)" } ?? "存至备忘录(⌘ + Enter)")
         }
         .padding(.horizontal, 12)
         .frame(height: Self.barHeight)
         .disabled(model.isSaving)
+    }
+
+    @ViewBuilder
+    private var folderPickerItems: some View {
+        Button { selectFolder(nil) } label: {
+            if targetFolder == nil { Label("默认文件夹", systemImage: "checkmark") }
+            else { Text("默认文件夹") }
+        }
+        ForEach(accountGroups, id: \.account) { group in
+            Section(group.account) {
+                ForEach(group.folders, id: \.id) { folder in
+                    Button { selectFolder(folder) } label: {
+                        if targetFolder == folder { Label(folder.name, systemImage: "checkmark") }
+                        else { Text(folder.name) }
+                    }
+                }
+            }
+        }
+    }
+
+    private var accountGroups: [(account: String, folders: [NotesFolder])] {
+        var order: [String] = []
+        var grouped: [String: [NotesFolder]] = [:]
+        for folder in folders {
+            if grouped[folder.accountName] == nil { order.append(folder.accountName) }
+            grouped[folder.accountName, default: []].append(folder)
+        }
+        return order.map { ($0, grouped[$0] ?? []) }
+    }
+
+    private func selectFolder(_ folder: NotesFolder?) {
+        FolderCatalog.target = folder
+        targetFolder = folder
+    }
+
+    private func reloadCatalog() {
+        catalogState = .loading
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result { try FolderCatalog.fetch() }
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let list):
+                    folders = list
+                    catalogState = .loaded
+                    // A stored target that no longer exists reverts to the default folder.
+                    if let target = targetFolder, !list.contains(where: { $0.id == target.id }) {
+                        selectFolder(nil)
+                    }
+                case .failure(let error):
+                    let scriptError = error as? NotesSaver.ScriptError
+                    catalogState = .failed(message: error.localizedDescription,
+                                           unauthorized: scriptError?.number == -1743)
+                }
+            }
+        }
+    }
+
+    private func retryCatalog(message: String, unauthorized: Bool) {
+        if unauthorized { showError(message: message, unauthorized: true) }
+        reloadCatalog()
     }
 
     private func chooseImages() {
@@ -289,6 +379,7 @@ struct NoteEditorView: View {
         model.saveAsync(using: saveAction ?? NotesSaver.save) { result in
             switch result {
             case .success:
+                targetFolder = FolderCatalog.target
                 showSavedNotice = true
                 DispatchQueue.main.async { onSaved() }
             case .unauthorized(let message):

@@ -46,8 +46,10 @@ enum NotesSaver {
 
     /// Injection keeps automated failure tests out of the user's Notes database.
     static func save(_ content: NoteContent, execute: (String) throws -> String,
+                     folderID: String? = FolderCatalog.target?.id,
                      temporaryRoot: URL = FileManager.default.temporaryDirectory,
-                     verificationAttempts: Int = 20) -> SaveResult {
+                     verificationAttempts: Int = 20,
+                     onInvalidFolder: () -> Void = { FolderCatalog.target = nil }) -> SaveResult {
         let fm = FileManager.default
         let directory = temporaryRoot.appendingPathComponent("NoteMenu-\(UUID().uuidString)", isDirectory: true)
         var preserveFiles = false
@@ -68,7 +70,15 @@ enum NotesSaver {
             // Acquire the note ID before any attachment work so later failures can roll back.
             // On an ambiguous create error, retain sources rather than assuming no note exists.
             preserveFiles = !paths.isEmpty
-            let id = try execute(makeScript(bodyHTML: html.initial))
+            let id: String
+            do {
+                id = try execute(makeScript(bodyHTML: html.initial, folderID: folderID))
+            } catch let error as ScriptError where error.number == -1728 && folderID != nil {
+                // The chosen folder was deleted or its account changed: forget it and
+                // retry once against the default folder.
+                onInvalidFolder()
+                id = try execute(makeScript(bodyHTML: html.initial))
+            }
             guard !id.isEmpty else { throw ScriptError(number: 0, message: "备忘录未返回笔记标识，请检查是否已创建笔记") }
             noteID = id
             if !paths.isEmpty {
@@ -129,11 +139,12 @@ enum NotesSaver {
     }
 
     /// Pure-text creation stays a single background AppleEvent transaction.
-    static func makeScript(bodyHTML: String) -> String {
-        """
+    static func makeScript(bodyHTML: String, folderID: String? = nil) -> String {
+        let target = folderID.map { "folder id \(quote($0))" } ?? "default folder of default account"
+        return """
         with timeout of 30 seconds
             tell application "Notes"
-                set newNote to make new note at default folder of default account with properties {body:\(quote(bodyHTML))}
+                set newNote to make new note at \(target) with properties {body:\(quote(bodyHTML))}
                 return id of newNote
             end tell
         end timeout

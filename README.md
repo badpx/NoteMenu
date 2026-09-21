@@ -12,6 +12,7 @@ A lightweight macOS menu bar app for quickly jotting down notes and saving them 
 - **富文本录入**：支持三级标题、加粗、斜体、下划线、删除线、代码行，以及八级项目符号和编号列表；支持规范限定的 Markdown 输入快捷语法
 - **图片附件**：可直接粘贴、拖入图片，或点击底部“添加图片”按钮选择本地图片（支持多选），插入当前光标位置；保存时保留图文顺序
 - **一键保存**：保存成功后自动清空录入窗口，保留首段格式，标题由系统备忘录派生
+- **指定保存目录**：工具栏的目录菜单列出备忘录各账户下的文件夹，可切换保存目标；所选文件夹被删除时自动回退到默认文件夹
 - **草稿恢复**：文字、空段落格式和原始图片自动保存，兼容导入旧 RTFD 草稿
 - **置顶模式**：置顶后浮窗不随点击外部收起，方便对照其他窗口整理内容
 - **窗口位置记忆**：拖动标题栏可移动浮窗，后续呼起及重启后恢复该位置；显示器变化时自动调整到可见区域
@@ -36,7 +37,7 @@ open build/Build/Products/Debug/NoteMenu.app
 ## 技术说明
 
 - SwiftUI + AppKit：`NSStatusItem` + `NSPanel` 浮窗承载 SwiftUI 界面；编辑器使用语义文档模型、统一编辑命令和原生 `NSTextView` / TextKit 投影
-- 写入备忘录：通过 AppleScript（`make new note` / `make new attachment`）实现，正文直接从模型导出为规范白名单 HTML，图片按顺序追加为附件
+- 写入备忘录：通过 AppleScript（`make new note` / `make new attachment`）实现，正文直接从模型导出为规范白名单 HTML，图片按顺序追加为附件；保存目标默认为默认文件夹，可经 AppleScript 枚举账户目录后改存指定文件夹，选择持久化在 UserDefaults
 - 草稿：应用支持目录下的 `NoteMenu/draft-v1.json` 原子保存模型、输入格式和图片；旧 `draft.rtfd` 迁移源会保留，清空时移为备份以免旧稿恢复
 - 沙盒：开启 App Sandbox，通过 `com.apple.security.temporary-exception.apple-events` 获得控制备忘录的权限
 - 应用图标：使用 `NoteMenu/Resources/AppIcon.icon`，可直接用 Xcode 附带的 Icon Composer 打开。黄色背景由 Composer 定义，`Assets/note.svg` 是文字与笔形镂空的便笺矢量层；外轮廓由系统生成，不在素材里预先添加圆角底板或透明边距。
