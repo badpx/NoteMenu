@@ -20,7 +20,7 @@ final class EditorTextView: NSTextView {
         view.isAutomaticDashSubstitutionEnabled = false
         view.isAutomaticTextReplacementEnabled = false
         view.isAutomaticSpellingCorrectionEnabled = false
-        view.font = .systemFont(ofSize: 15)
+        view.font = TextKitRenderer.font(for: .plain, block: .body)
         view.textColor = TextKitRenderer.textColor
         view.insertionPointColor = NSColor(srgbRed: 252 / 255, green: 184 / 255, blue: 38 / 255, alpha: 1)
         view.drawsBackground = false
@@ -208,7 +208,7 @@ final class EditorTextView: NSTextView {
         result.size.width = rect.width + 1
         guard let layout = layoutManager, let container = textContainer, let storage = textStorage else { return result }
         layout.ensureLayout(for: container)
-        let font = typingAttributes[.font] as? NSFont ?? self.font ?? NSFont.systemFont(ofSize: 15)
+        let font = typingAttributes[.font] as? NSFont ?? self.font ?? TextKitRenderer.font(for: .plain, block: .body)
         result.size.height = layout.defaultLineHeight(for: font)
         var center = rect.minY + layout.defaultBaselineOffset(for: font) - (font.ascender + font.descender) / 2
         let point = NSPoint(x: rect.minX - textContainerOrigin.x,
@@ -306,7 +306,7 @@ final class EditorTextView: NSTextView {
             let origin = textContainerOrigin
             let padding = textContainer?.lineFragmentPadding ?? 0
             ("现在的想法是…" as NSString).draw(at: NSPoint(x: origin.x + padding, y: origin.y), withAttributes: [
-                .font: NSFont.systemFont(ofSize: 15), .foregroundColor: NSColor.placeholderTextColor,
+                .font: TextKitRenderer.font(for: .plain, block: .body), .foregroundColor: NSColor.placeholderTextColor,
             ])
         }
     }

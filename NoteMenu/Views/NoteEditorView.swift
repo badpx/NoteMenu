@@ -105,7 +105,7 @@ struct NoteEditorView: View {
     private var header: some View {
         HStack {
             Text("NoteMenu")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.primary)
             if model.isSaving {
                 ProgressView()
@@ -223,26 +223,17 @@ struct NoteEditorView: View {
 
             Spacer()
 
-            Menu {
-                switch catalogState {
-                case .loading:
-                    Text("正在读取备忘录目录…")
-                case .failed(let message, let unauthorized):
-                    Button("读取目录失败，点按重试") { retryCatalog(message: message, unauthorized: unauthorized) }
-                case .loaded:
-                    folderPickerItems
-                }
-                Divider()
-                Button("重新载入目录") { reloadCatalog() }
-            } label: {
-                Image(systemName: "folder")
-                    .foregroundStyle(targetFolder == nil ? Color.secondary : Color.accentColor)
+            Divider()
+                .frame(height: 15)
+                .padding(.vertical, 6)
+
+            FolderFolderButton(
+                name: targetFolder?.name ?? "默认",
+                isSelected: targetFolder != nil,
+                fullName: targetFolder.map { "保存目录：\($0.name)" } ?? "保存目录：默认文件夹"
+            ) {
+                showFolderMenu()
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .modifier(FormatControlHover())
-            .help(targetFolder.map { "保存目录：\($0.name)" } ?? "保存目录：默认文件夹")
-            .accessibilityLabel("选择保存目录")
 
             Button(action: { model.bridge.requestSave() }) {
                 Image("SaveNote")
@@ -269,35 +260,119 @@ struct NoteEditorView: View {
         .disabled(model.isSaving)
     }
 
-    @ViewBuilder
-    private var folderPickerItems: some View {
-        Button { selectFolder(nil) } label: {
-            if targetFolder == nil { Label("默认文件夹", systemImage: "checkmark") }
-            else { Text("默认文件夹") }
-        }
-        ForEach(accountGroups, id: \.account) { group in
-            Section(group.account) {
-                ForEach(group.folders, id: \.id) { folder in
-                    Button { selectFolder(folder) } label: {
-                        if targetFolder == folder { Label(folder.name, systemImage: "checkmark") }
-                        else { Text(folder.name) }
-                    }
-                }
+    /// 以 NSMenu popUp 方式弹出目录选择菜单。
+    /// 不用 SwiftUI Menu：macOS 上 .borderlessButton 样式会桥接为 AppKit NSPopUpButton，
+    /// label 的 SwiftUI 布局修饰器（固定宽度 frame）被忽略，宽度随名称自适应（离屏实测证实）。
+    private func showFolderMenu() {
+        let menu = NSMenu()
+        var targets: [MenuActionTarget] = []
+        switch catalogState {
+        case .loading:
+            menu.addItem(Self.makeItem("正在读取备忘录目录…", enabled: false, targets: &targets))
+        case .failed(let message, let unauthorized):
+            menu.addItem(Self.makeItem("读取目录失败，点按重试", targets: &targets) {
+                self.retryCatalog(message: message, unauthorized: unauthorized)
+            })
+        case .loaded:
+            for item in Self.buildFolderMenuItems(
+                folders: folders,
+                targetFolder: targetFolder,
+                targets: &targets
+            ) { folder in
+                self.selectFolder(folder)
+            } {
+                menu.addItem(item)
             }
+        }
+        menu.addItem(.separator())
+        menu.addItem(Self.makeItem("重新载入目录", targets: &targets) { self.reloadCatalog() })
+        // popUp 阻塞至菜单关闭，targets 在此期间保持存活（NSMenuItem.target 是弱引用）。
+        withExtendedLifetime(targets) {
+            menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
         }
     }
 
-    private var accountGroups: [(account: String, folders: [NotesFolder])] {
+    /// 废纸篓文件夹（保存到废纸篓没有意义），中英文系统名都排除。
+    static let trashedFolderNames: Set<String> = ["Recently Deleted", "最近删除"]
+
+    static func isTrashedFolder(_ folder: NotesFolder) -> Bool {
+        trashedFolderNames.contains(folder.name)
+    }
+
+    /// 构建目录选择菜单项（internal 以便离线断言结构）。规则：
+    /// 过滤废纸篓；多账户才显示组标题（11px 灰字禁用项）且组间分隔线；
+    /// 有组标题时文件夹项统一缩进一级（目录数据无层级信息）。
+    static func buildFolderMenuItems(
+        folders: [NotesFolder],
+        targetFolder: NotesFolder?,
+        targets: inout [MenuActionTarget],
+        select: @escaping (NotesFolder?) -> Void
+    ) -> [NSMenuItem] {
+        var items: [NSMenuItem] = []
+        // 选中项是废纸篓时按未选择兜底
+        let target = targetFolder.flatMap { isTrashedFolder($0) ? nil : $0 }
+        let visible = folders.filter { !isTrashedFolder($0) }
+
+        items.append(makeItem("默认文件夹", state: target == nil ? .on : .off, targets: &targets) {
+            select(nil)
+        })
+
         var order: [String] = []
         var grouped: [String: [NotesFolder]] = [:]
-        for folder in folders {
+        for folder in visible {
             if grouped[folder.accountName] == nil { order.append(folder.accountName) }
             grouped[folder.accountName, default: []].append(folder)
         }
-        return order.map { ($0, grouped[$0] ?? []) }
+        let groups = order.map { (account: $0, folders: grouped[$0] ?? []) }
+        let showHeaders = groups.count > 1
+
+        for (index, group) in groups.enumerated() {
+            if showHeaders {
+                if index > 0 { items.append(.separator()) }
+                let header = NSMenuItem()
+                header.attributedTitle = NSAttributedString(
+                    string: group.account,
+                    attributes: [
+                        .font: NSFont.systemFont(ofSize: 11),
+                        .foregroundColor: NSColor.secondaryLabelColor,
+                    ]
+                )
+                header.isEnabled = false
+                items.append(header)
+            }
+            for folder in group.folders {
+                let item = makeItem(folder.name, state: target == folder ? .on : .off, targets: &targets) {
+                    select(folder)
+                }
+                item.indentationLevel = showHeaders ? 1 : 0
+                items.append(item)
+            }
+        }
+        return items
+    }
+
+    private static func makeItem(
+        _ title: String,
+        state: NSControl.StateValue = .off,
+        enabled: Bool = true,
+        targets: inout [MenuActionTarget],
+        action: (() -> Void)? = nil
+    ) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = enabled
+        item.state = state
+        if let action {
+            let target = MenuActionTarget(action)
+            targets.append(target)
+            item.target = target
+            item.action = #selector(MenuActionTarget.run(_:))
+        }
+        return item
     }
 
     private func selectFolder(_ folder: NotesFolder?) {
+        // 废纸篓不可作为保存目标（兜底为默认文件夹）
+        let folder = folder.flatMap { Self.isTrashedFolder($0) ? nil : $0 }
         FolderCatalog.target = folder
         targetFolder = folder
     }
@@ -311,8 +386,9 @@ struct NoteEditorView: View {
                 case .success(let list):
                     folders = list
                     catalogState = .loaded
-                    // A stored target that no longer exists reverts to the default folder.
-                    if let target = targetFolder, !list.contains(where: { $0.id == target.id }) {
+                    // 保存目标失效（不存在或落在废纸篓）时回落到默认文件夹。
+                    if let target = targetFolder,
+                       Self.isTrashedFolder(target) || !list.contains(where: { $0.id == target.id }) {
                         selectFolder(nil)
                     }
                 case .failure(let error):
@@ -397,6 +473,20 @@ struct NoteEditorView: View {
         }
     }
 
+    /// 文件夹名称截断：最多 4 个中文字符宽（全角=1 单位、ASCII=0.5 单位），
+    /// 超出部分尾部截断加「…」，保证长名称不撑开工具栏。
+    static func truncatedFolderName(_ name: String, maxUnits: Double = 4) -> String {
+        var units = 0.0
+        var result = ""
+        for ch in name {
+            let unit = ch.isASCII ? 0.5 : 1.0
+            if units + unit > maxUnits { return result + "…" }
+            units += unit
+            result.append(ch)
+        }
+        return name
+    }
+
     private func showError(message: String, unauthorized: Bool) {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
@@ -420,13 +510,13 @@ struct NoteEditorView: View {
     }
 }
 
-private struct FormatControlHover: ViewModifier {
+private struct FormatControlHover: ViewModifier {    var width: CGFloat? = 28
     @Environment(\.isEnabled) private var isEnabled
     @State private var isHovered = false
 
     func body(content: Content) -> some View {
         content
-            .frame(width: 28, height: 28)
+            .frame(width: width, height: 28)
             .background {
                 RoundedRectangle(cornerRadius: 5, style: .continuous)
                     .fill(isHovered && isEnabled
@@ -436,4 +526,39 @@ private struct FormatControlHover: ViewModifier {
             .contentShape(Rectangle())
             .onHover { isHovered = $0 }
     }
+}
+
+/// 文件夹选择控件：普通 Button + NSMenu popUp（见 showFolderMenu 注释）。
+/// label 布局完全由 SwiftUI 控制，名称区固定 56pt 左对齐，控件总宽度对任意名称恒定。
+struct FolderFolderButton: View {
+    let name: String
+    let isSelected: Bool
+    let fullName: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "folder")
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                Text(NoteEditorView.truncatedFolderName(name))
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.secondary)
+                    .lineLimit(1)
+                    .frame(width: 56, alignment: .leading)
+            }
+            .padding(.leading, 6)
+        }
+        .buttonStyle(.borderless)
+        .modifier(FormatControlHover(width: nil))
+        .help(fullName)
+        .accessibilityLabel("选择保存目录")
+    }
+}
+
+/// NSMenuItem 闭包 action 的 target 桥（NSMenuItem.target 为弱引用，由调用方保活）。
+final class MenuActionTarget: NSObject {
+    let action: () -> Void
+    init(_ action: @escaping () -> Void) { self.action = action }
+    @objc func run(_ sender: Any?) { action() }
 }

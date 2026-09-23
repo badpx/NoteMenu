@@ -124,7 +124,7 @@ enum TextKitRenderer {
     static let codeBlockSpacing: CGFloat = 2
     static func paragraphStyle(_ kind: BlockKind, includeNativeLists: Bool = false) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
-        style.lineSpacing = kind == .body || kind.list != nil ? 6 : 4
+        style.lineSpacing = kind == .body || kind.list != nil ? 5 : 4
         style.paragraphSpacing = 0
         style.paragraphSpacingBefore = 0
         if kind.isCode {
@@ -146,14 +146,14 @@ enum TextKitRenderer {
 
     static func font(for style: InlineStyle, block: BlockKind) -> NSFont {
         let code = block.isCode || style.marks.contains(.code) || style.font?.monospaced == true
-        var size: CGFloat = 15
+        var size: CGFloat = 14
         var bold = style.marks.contains(.bold)
         if case .heading(let level) = block {
             size = level == 1 ? 22 : level == 2 ? 18 : 15
             bold = true
         }
         if let intent = style.font { size = CGFloat(intent.size) }
-        if code { size = 14 }
+        if code { size = 13 }
         let base = code ? (NSFont(name: "Courier", size: size) ?? .monospacedSystemFont(ofSize: size, weight: .regular)) : .systemFont(ofSize: size)
         return bold ? NSFontManager.shared.convert(base, toHaveTrait: .boldFontMask) : base
     }
