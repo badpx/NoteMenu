@@ -182,7 +182,7 @@ final class EditorAppKitTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(adjusted.count, 4)
         for rect in adjusted {
             XCTAssertGreaterThan(rect.width, 0)
-            XCTAssertEqual(rect.height, 18, accuracy: 0.01)
+            XCTAssertEqual(rect.height, layout.defaultLineHeight(for: TextKitRenderer.font(for: .plain, block: .body)), accuracy: 0.01)
         }
         let font = TextKitRenderer.font(for: .plain, block: .body)
         let baseline = view.textContainerOrigin.y + layout.location(forGlyphAt: 0).y
@@ -208,7 +208,8 @@ final class EditorAppKitTests: XCTestCase {
             return color.alphaComponent > 0.5 && color.redComponent > 0.8 && color.blueComponent > 0.8
         }
         // Fractional rectangle edges can cover one additional raster row.
-        XCTAssertTrue((18...19).contains(rows.count), "Painted height: \(rows.count)")
+        let naturalHeight = Int(layout.defaultLineHeight(for: TextKitRenderer.font(for: .plain, block: .body)))
+        XCTAssertTrue((naturalHeight...naturalHeight + 1).contains(rows.count), "Painted height: \(rows.count)")
         let glyphs = layout.glyphRange(forCharacterRange: view.selectedRange(), actualCharacterRange: nil)
         var expected: NSRect?
         layout.enumerateEnclosingRects(forGlyphRange: glyphs, withinSelectedGlyphRange: glyphs, in: view.textContainer!) { rect, _ in
@@ -613,7 +614,7 @@ final class EditorAppKitTests: XCTestCase {
         let long = EditorDocument(paragraphs: (0..<110).map { _ in Paragraph(kind: .list(.ordered, 1), runs: [InlineRun(text: "item")]) })
         bridge.load(long)
         XCTAssertEqual(bridge.listItems[99]?.marker, "100.")
-        let width = ("100." as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 15)]).width
+        let width = ("100." as NSString).size(withAttributes: [.font: TextKitRenderer.font(for: .plain, block: .body)]).width
         XCTAssertGreaterThanOrEqual(view.textContainerOrigin.x + view.textContainer!.lineFragmentPadding + 22 - 4 - width, 0)
     }
 
