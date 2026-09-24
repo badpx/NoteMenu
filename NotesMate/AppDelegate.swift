@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static let newNoteHotKeyID = EventHotKeyID(signature: 0x4E4D4E55, id: 1)
     private static let openNotesHotKeyID = EventHotKeyID(signature: 0x4E4D4E55, id: 2)
     private static let didShowFirstLaunchEditorKey = "didShowFirstLaunchEditor"
+    private static let firstLaunchAnchorRetryLimit = 50
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -28,14 +29,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         registerHotKeys()
-        // Wait until the status item is attached before anchoring the first window.
-        // Persist independently of window/draft state so later launches stay quiet.
-        DispatchQueue.main.async { [weak self] in
-            guard let self,
-                  !UserDefaults.standard.bool(forKey: Self.didShowFirstLaunchEditorKey),
-                  let button = self.statusItem.button else { return }
+        // The status item may need more than one run-loop turn to acquire a window
+        // and its final menu-bar frame. Never show or persist an unanchored panel.
+        DispatchQueue.main.async { [weak self] in self?.showFirstLaunchEditorWhenReady() }
+    }
+
+    private func showFirstLaunchEditorWhenReady(attempt: Int = 0) {
+        guard !UserDefaults.standard.bool(forKey: Self.didShowFirstLaunchEditorKey) else { return }
+        if panelController.isVisible {
+            UserDefaults.standard.set(true, forKey: Self.didShowFirstLaunchEditorKey)
+            return
+        }
+        if let button = statusItem.button {
             let welcome = EditorLanguage.format("Hello, welcome to {0}.\nCapture ideas and save to Apple Notes.", AppIdentity.productName)
-            self.panelController.show(relativeTo: button, welcomeMessage: welcome)
+            if panelController.show(relativeTo: button, welcomeMessage: welcome) {
+                UserDefaults.standard.set(true, forKey: Self.didShowFirstLaunchEditorKey)
+                return
+            }
+        }
+        guard attempt < Self.firstLaunchAnchorRetryLimit else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.showFirstLaunchEditorWhenReady(attempt: attempt + 1)
+        }
+    }
+
+    private func recordManualFirstLaunchOpen() {
+        if panelController.isVisible {
             UserDefaults.standard.set(true, forKey: Self.didShowFirstLaunchEditorKey)
         }
     }
@@ -107,6 +126,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self, let button = self.statusItem.button else { return }
             self.panelController.toggle(relativeTo: button)
+            self.recordManualFirstLaunchOpen()
         }
     }
 
@@ -115,6 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self, let button = self.statusItem.button else { return }
             self.panelController.show(relativeTo: button)
+            self.recordManualFirstLaunchOpen()
         }
     }
 
@@ -124,6 +145,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showContextMenu()
         } else {
             panelController.toggle(relativeTo: sender)
+            recordManualFirstLaunchOpen()
         }
     }
 

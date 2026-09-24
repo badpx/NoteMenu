@@ -281,6 +281,7 @@ final class PanelController {
 
     /// 置顶时点击面板外部不自动收起。
     private(set) var isPinned = false
+    var isVisible: Bool { panel.isVisible }
 
     init() {
         let storedSize = UserDefaults.standard.string(forKey: Self.panelSizeKey).map(NSSizeFromString)
@@ -354,14 +355,16 @@ final class PanelController {
         }
     }
 
-    func show(relativeTo button: NSStatusBarButton, welcomeMessage: String? = nil) {
+    @discardableResult
+    func show(relativeTo button: NSStatusBarButton, welcomeMessage: String? = nil) -> Bool {
+        guard positionPanel(relativeTo: button) else { return false }
         model.tips.beginSession(initialMessage: welcomeMessage)
         anchorButton = button
-        positionPanel(relativeTo: button)
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
         focusEditor()
         startEventMonitors()
+        return true
     }
 
     func close() {
@@ -374,37 +377,41 @@ final class PanelController {
         panel.orderOut(nil)
     }
 
-    private func positionPanel(relativeTo button: NSStatusBarButton) {
-        guard let buttonWindow = button.window else { return }
+    private func positionPanel(relativeTo button: NSStatusBarButton) -> Bool {
+        guard let buttonWindow = button.window,
+              button.bounds.width > 0, button.bounds.height > 0 else { return false }
         let buttonRect = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
+        guard buttonRect.minX.isFinite, buttonRect.minY.isFinite,
+              buttonRect.width > 0, buttonRect.height > 0 else { return false }
         // 状态栏窗口的 .screen 在多屏下不可靠（可能与按钮实际所在屏不符），
-        // 按按钮中心所在屏幕选定目标屏；存储原点路径则按与已存 frame 相交面积选屏。
-        let buttonScreen = NSScreen.screens.first {
-            $0.frame.contains(NSPoint(x: buttonRect.midX, y: buttonRect.midY))
-        } ?? buttonWindow.screen ?? NSScreen.main
+        // 按菜单栏按钮所在屏幕选定目标屏；未完成布局的按钮可能暂时位于 (0, 0)。
+        guard let buttonScreen = NSScreen.screens.first(where: { screen in
+            buttonRect.midX >= screen.frame.minX && buttonRect.midX <= screen.frame.maxX &&
+            buttonRect.midY >= screen.frame.maxY - 100 && buttonRect.midY <= screen.frame.maxY + 50
+        }) else { return false }
         if let stored = UserDefaults.standard.string(forKey: Self.panelOriginKey) {
             let origin = NSPointFromString(stored)
-            if origin.x.isFinite, origin.y.isFinite {
+            // Older builds could persist the panel's initial (0, 0) when the
+            // first status item had no window. Treat only that value as unset.
+            if origin.x.isFinite, origin.y.isFinite, origin != .zero {
                 let savedFrame = NSRect(origin: origin, size: panel.frame.size)
                 let screen = NSScreen.screens.filter { $0.visibleFrame.intersects(savedFrame) }.max {
                     let a = $0.visibleFrame.intersection(savedFrame)
                     let b = $1.visibleFrame.intersection(savedFrame)
                     return a.width * a.height < b.width * b.height
-                } ?? buttonScreen ?? NSScreen.main
-                if let screen {
-                    // Keep the title bar reachable after a monitor is unplugged or its resolution changes.
-                    let visible = screen.visibleFrame.insetBy(dx: 8, dy: 8)
-                    let size = NSSize(width: min(panel.frame.width, visible.width),
-                                      height: min(panel.frame.height, visible.height))
-                    let adjusted = NSPoint(x: min(max(origin.x, visible.minX), visible.maxX - size.width),
-                                           y: min(max(origin.y, visible.minY), visible.maxY - size.height))
-                    panel.setFrame(NSRect(origin: adjusted, size: size), display: false)
-                    return
-                }
+                } ?? buttonScreen
+                // Keep the title bar reachable after a monitor is unplugged or its resolution changes.
+                let visible = screen.visibleFrame.insetBy(dx: 8, dy: 8)
+                let size = NSSize(width: min(panel.frame.width, visible.width),
+                                  height: min(panel.frame.height, visible.height))
+                let adjusted = NSPoint(x: min(max(origin.x, visible.minX), visible.maxX - size.width),
+                                       y: min(max(origin.y, visible.minY), visible.maxY - size.height))
+                panel.setFrame(NSRect(origin: adjusted, size: size), display: false)
+                return true
             }
         }
         // 面板必须完整落在屏幕可见区域内（四角热区可达）：先按可见区域夹取尺寸，再夹取位置。
-        let visible = ((buttonScreen ?? NSScreen.main)?.visibleFrame ?? .zero).insetBy(dx: 8, dy: 8)
+        let visible = buttonScreen.visibleFrame.insetBy(dx: 8, dy: 8)
         let size = NSSize(width: min(panel.frame.width, visible.width),
                           height: min(panel.frame.height, visible.height))
         let origin = NSPoint(
@@ -412,6 +419,7 @@ final class PanelController {
             y: min(max(buttonRect.minY - size.height - 6, visible.minY), visible.maxY - size.height)
         )
         panel.setFrame(NSRect(origin: origin, size: size), display: false)
+        return true
     }
 
     private func focusEditor() {
