@@ -1,0 +1,7 @@
+Edit this approved NoteMenu UI design board with ONLY the following control-state corrections, preserving language, all text, actual app icons, geometry, colors, two windows and other content:
+1. The right window's bulleted-list button is selected, but must have NO background. Remove its current rounded yellow/amber background entirely and color only its list symbol golden accent (warm amber #A07800 in light mode, soft gold #F2CC54 in dark mode).
+2. Show the Aa formatting control in the RIGHT window hovered: add the same soft pale-yellow rounded-square background previously used by the selected list button (dark amber #494027 in dark mode), with a tiny neutral mouse pointer at its lower-right edge. Its text must remain literally 'Aa', in either English or Chinese. This illustrates HOVER, not selected. Other buttons have no hover background.
+3. BOTH folder selectors have NO persistent background. Match their backing exactly to the toolbar. Keep folder glyph, destination text, chevron, positioning and inner padding unchanged. A folder selector would use the same yellow hover background, but these two examples are not hovered.
+4. Pin selected state follows foreground-only gold; both pins in the existing board remain unselected neutral gray with no background.
+Save buttons remain exactly unchanged, including their active yellow and disabled gray fills. Do not remove save button backgrounds.
+Do not alter any other text or positions, preserve all original English or Chinese content and original light or dark appearance. High fidelity surgical edit.

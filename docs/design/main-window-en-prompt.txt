@@ -1,0 +1,15 @@
+Use case: text-localization / ui-mockup.
+Edit the supplied approved NoteMenu design board into an ENGLISH version. Preserve the exact canvas dimensions, layout, two window frames, all positions, colors, typography weights, app icons, controls, shadows, and appearance mode of the supplied image. Replace ALL Chinese text with the following English copy:
+Board heading remains "NoteMenu".
+Board subtitle: "Capture a thought. Keep it in Notes."
+Left state label: "01  Ready to write"
+Right state label: "02  Writing"
+Both window title labels remain "NoteMenu".
+Left editor placeholder: "What's on your mind?"
+Right editor heading: "Give ideas a place"
+Right paragraph: "Save a thought. Come back to it later."
+First bullet: "Capture ideas without losing focus"
+Second bullet: "Save them directly to Apple Notes"
+Folder label in BOTH toolbars: "Meetings"
+Three bottom board notes: "A quiet writing space" / "A considered toolbar" / "Yellow, with purpose".
+Keep all English legible and correctly spelled. These English strings replace the corresponding Chinese text in-place. Fit within the same space using natural English typography, do not widen windows or move controls, keep both bullets single-line where possible. No Chinese text should remain. Preserve the REAL NoteMenu app icon in both window headers without redesign. Preserve the native toolbar symbols (#, Aa, bulleted list, numbered list, image, folder-chevron, save/write icon) exactly; no text labels added to these. Preserve active selection, caret, disabled save left and active save right. Only localize text; no aesthetic restyling, no new elements or decoration.

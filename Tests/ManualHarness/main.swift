@@ -11,8 +11,7 @@ let panel = NSPanel(contentRect: NSRect(x: 300, y: 200, width: 460, height: 540)
                     styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
 panel.title = "NoteMenu Editor Harness"
 panel.minSize = NSSize(width: 280, height: 240)
-let resize = PanelResizeHandler(panel: panel)
-let view = NoteEditorView(isPinned: true, resizeHandler: resize, onClose: { model.flushPendingPersist(); app.terminate(nil) },
+let view = NoteEditorView(isPinned: true, onClose: { model.flushPendingPersist(); app.terminate(nil) },
     onPinChanged: { _ in }, onSaved: { panel.title = "NoteMenu Editor Harness — saved locally" }, model: model,
     saveAction: { content in
         // Optional local-only latency injection for observing the saving indicator.

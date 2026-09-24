@@ -61,8 +61,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         var failures: [String] = []
         for (keyCode, identifier, label) in [
-            (kVK_ANSI_N, Self.newNoteHotKeyID, "新建笔记 ⌃⌘N"),
-            (kVK_ANSI_O, Self.openNotesHotKeyID, "打开备忘录 ⌃⌘O"),
+            (kVK_ANSI_N, Self.newNoteHotKeyID, EditorLanguage.text("新建笔记 ⌃⌘N", "New Note ⌃⌘N")),
+            (kVK_ANSI_O, Self.openNotesHotKeyID, EditorLanguage.text("打开备忘录 ⌃⌘O", "Open Notes ⌃⌘O")),
         ] {
             var hotKey: EventHotKeyRef?
             let status = handlerStatus == noErr
@@ -72,7 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if status == noErr, let hotKey {
                 hotKeys.append(hotKey)
             } else {
-                failures.append("\(label)（错误码：\(status)）")
+                failures.append(EditorLanguage.text("\(label)（错误码：\(status)）", "\(label) (error: \(status))"))
             }
         }
         // 一个快捷键注册失败时，仍保留另一个可用的快捷键。
@@ -85,9 +85,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.async {
             NSApp.activate(ignoringOtherApps: true)
             let alert = NSAlert()
-            alert.messageText = "无法注册快捷键"
-            alert.informativeText = "以下快捷键可能已被其他应用占用：\n\(message)\n仍可通过菜单栏图标的右键菜单执行对应操作。"
-            alert.addButton(withTitle: "好")
+            alert.messageText = EditorLanguage.text("无法注册快捷键", "Unable to Register Shortcuts")
+            alert.informativeText = EditorLanguage.text("以下快捷键可能已被其他应用占用：\n\(message)\n仍可通过菜单栏图标的右键菜单执行对应操作。", "These shortcuts may be in use by another app:\n\(message)\nYou can still use the menu bar icon’s context menu.")
+            alert.addButton(withTitle: EditorLanguage.text("好", "OK"))
             alert.runModal()
         }
     }
@@ -120,7 +120,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
 
         let newNoteItem = NSMenuItem(
-            title: "新建笔记",
+            title: EditorLanguage.text("新建笔记", "New Note"),
             action: #selector(newNote(_:)),
             keyEquivalent: "n"
         )
@@ -129,7 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(newNoteItem)
 
         let openNotesItem = NSMenuItem(
-            title: "打开备忘录",
+            title: EditorLanguage.text("打开备忘录", "Open Notes"),
             action: #selector(openNotes(_:)),
             keyEquivalent: "o"
         )
@@ -139,7 +139,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
 
         let launchItem = NSMenuItem(
-            title: "开机自启动",
+            title: EditorLanguage.text("开机自启动", "Launch at Login"),
             action: #selector(toggleLaunchAtLogin(_:)),
             keyEquivalent: ""
         )
@@ -148,7 +148,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(launchItem)
 
         let quitItem = NSMenuItem(
-            title: "退出 NoteMenu",
+            title: EditorLanguage.text("退出 NoteMenu", "Quit NoteMenu"),
             action: #selector(quit(_:)),
             keyEquivalent: "q"
         )
@@ -162,7 +162,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openNotes(_ sender: Any?) {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Notes") else {
-            showOpenNotesError("未找到系统备忘录应用。")
+            showOpenNotesError(EditorLanguage.text("未找到系统备忘录应用。", "Apple Notes could not be found."))
             return
         }
         let configuration = NSWorkspace.OpenConfiguration()
@@ -176,10 +176,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showOpenNotesError(_ message: String) {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        alert.messageText = "无法打开备忘录"
+        alert.messageText = EditorLanguage.text("无法打开备忘录", "Unable to Open Notes")
         alert.informativeText = message
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "好")
+        alert.addButton(withTitle: EditorLanguage.text("好", "OK"))
         alert.runModal()
     }
 
@@ -193,10 +193,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             NSApp.activate(ignoringOtherApps: true)
             let alert = NSAlert()
-            alert.messageText = "无法更新开机自启动设置"
+            alert.messageText = EditorLanguage.text("无法更新开机自启动设置", "Unable to Update Launch at Login")
             alert.informativeText = error.localizedDescription
             alert.alertStyle = .warning
-            alert.addButton(withTitle: "好")
+            alert.addButton(withTitle: EditorLanguage.text("好", "OK"))
             alert.runModal()
         }
     }

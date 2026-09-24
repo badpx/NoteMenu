@@ -87,7 +87,7 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
         onChange?()
     }
 
-    func execute(_ command: EditorCommand, name: String = "格式") {
+    func execute(_ command: EditorCommand, name: String = EditorLanguage.text("格式", "Format")) {
         if isComposing {
             switch command {
             case .block, .list, .toggle:
@@ -159,11 +159,11 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
         }
         synchronizeNative(from: before)
         if suppressedNative { history.manager.enableUndoRegistration(); suppressedNative = false }
-        if structuralNative, before.document != state.document { history.register(before, name: "编辑", view: textView) }
+        if structuralNative, before.document != state.document { history.register(before, name: EditorLanguage.text("编辑", "Edit"), view: textView) }
         if !wasComposition, let inserted, let plan = MarkdownTriggerEngine.plan(in: state, inserted: inserted) {
             var next = state
             MarkdownTriggerEngine.apply(plan, to: &next)
-            commit(next, name: "自动格式")
+            commit(next, name: EditorLanguage.text("自动格式", "Auto Format"))
         }
         pendingBefore = nil; pendingRange = nil
     }
@@ -192,7 +192,7 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
         synchronizeNative(from: before)
         if suppressedNative { history.manager.enableUndoRegistration(); suppressedNative = false }
         if structuralNative, !history.manager.isUndoing, !history.manager.isRedoing {
-            history.register(before, name: "编辑", view: textView)
+            history.register(before, name: EditorLanguage.text("编辑", "Edit"), view: textView)
         }
         pendingBefore = nil; pendingRange = nil; structuralNative = false
     }
@@ -301,7 +301,7 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
         pendingRange = nil
         synchronizeNative(from: before)
         history.manager.enableUndoRegistration()
-        if state.document != before.document { history.register(before, name: "输入", view: textView) }
+        if state.document != before.document { history.register(before, name: EditorLanguage.text("输入", "Typing"), view: textView) }
         pendingBefore = nil
     }
 
@@ -318,7 +318,7 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
         guard !isComposing,
               let (fragment, preserve) = ClipboardCodec.read(pasteboard, plainOnly: plainOnly, style: state.session.insertionStyle) else { return }
         if !fragment.assets.isEmpty, fragment.text.allSatisfy({ $0 == "\u{FFFC}" }) {
-            insertImageFragment(fragment, name: "粘贴图片")
+            insertImageFragment(fragment, name: EditorLanguage.text("粘贴图片", "Paste Image"))
             return
         }
         var insertion = fragment
@@ -329,7 +329,7 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
         if padding.after && insertion.paragraphs.last?.isEmpty == false {
             insertion.paragraphs.append(Paragraph())
         }
-        execute(.replace(state.session.selection, insertion, preserveBlocks: preserve), name: "粘贴")
+        execute(.replace(state.session.selection, insertion, preserveBlocks: preserve), name: EditorLanguage.text("粘贴", "Paste"))
     }
 
     /// Only retained attachments need separation; replacing a selected image stays in place.
@@ -346,13 +346,13 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
     func copy(to pasteboard: NSPasteboard, cut: Bool = false) {
         guard !isComposing, state.session.selection.length > 0 else { return }
         ClipboardCodec.write(document.fragment(in: state.session.selection), to: pasteboard)
-        if cut { execute(.replace(state.session.selection, .plain(""), preserveBlocks: false), name: "剪切") }
+        if cut { execute(.replace(state.session.selection, .plain(""), preserveBlocks: false), name: EditorLanguage.text("剪切", "Cut")) }
     }
 
     func insertImages(_ images: [NSImage]) {
         let fragment = ClipboardCodec.imageFragment(images)
         guard fragment.canSend else { return }
-        insertImageFragment(fragment, name: "插入图片")
+        insertImageFragment(fragment, name: EditorLanguage.text("插入图片", "Insert Image"))
     }
 
     private func insertImageFragment(_ fragment: EditorDocument, name: String) {

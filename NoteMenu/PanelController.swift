@@ -68,9 +68,9 @@ final class NotePanel: NSPanel {
                 return
             }
             if let contentView {
-                // Match the 36pt custom title bar; leave side resize handles and Pin/Close untouched.
-                let dragRect = NSRect(x: 6, y: contentView.bounds.height - 36,
-                                      width: max(0, contentView.bounds.width - 90), height: 36)
+                // Match the custom title bar; leave side resize handles and Pin/Close untouched.
+                let dragRect = NSRect(x: 6, y: contentView.bounds.height - EditorAppearance.headerHeight,
+                                      width: max(0, contentView.bounds.width - 90), height: EditorAppearance.headerHeight)
                 if dragRect.contains(event.locationInWindow) {
                     performDrag(with: event)
                     return
@@ -276,7 +276,7 @@ final class PanelController {
 
     private static let panelSizeKey = "panelSize"
     private static let panelOriginKey = "panelOrigin"
-    private static let defaultPanelSize = NSSize(width: 400, height: 500)
+    private static let defaultPanelSize = NSSize(width: 380, height: 410)
 
     /// 置顶时点击面板外部不自动收起。
     private(set) var isPinned = false

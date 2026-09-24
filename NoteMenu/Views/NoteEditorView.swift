@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct NoteEditorView: View {
-    private static let barHeight: CGFloat = 36
+    @Environment(\.displayScale) private var displayScale
     @StateObject private var model: NoteEditorModel
     @State private var isPinned: Bool
     @State private var isSaveHovered = false
@@ -16,6 +16,7 @@ struct NoteEditorView: View {
         case failed(message: String, unauthorized: Bool)
     }
 
+    private let folderLoader: () throws -> [NotesFolder]
     private let onClose: () -> Void
     private let onPinChanged: (Bool) -> Void
     private let onSaved: () -> Void
@@ -26,7 +27,9 @@ struct NoteEditorView: View {
         onPinChanged: @escaping (Bool) -> Void,
         onSaved: @escaping () -> Void,
         model: NoteEditorModel = NoteEditorModel(),
-        saveAction: ((NotesSaver.NoteContent) -> NotesSaver.SaveResult)? = nil
+        saveAction: ((NotesSaver.NoteContent) -> NotesSaver.SaveResult)? = nil,
+        initialFolder: NotesFolder? = FolderCatalog.target,
+        folderLoader: @escaping () throws -> [NotesFolder] = { try FolderCatalog.fetch() }
     ) {
         _isPinned = State(initialValue: isPinned)
         self.onClose = onClose
@@ -34,6 +37,8 @@ struct NoteEditorView: View {
         self.onSaved = onSaved
         self._model = StateObject(wrappedValue: model)
         self.saveAction = saveAction
+        self.folderLoader = folderLoader
+        self._targetFolder = State(initialValue: initialFolder)
     }
 
     private let saveAction: ((NotesSaver.NoteContent) -> NotesSaver.SaveResult)?
@@ -41,18 +46,24 @@ struct NoteEditorView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider()
+            Color(nsColor: EditorAppearance.separator).frame(height: 1 / displayScale)
             RichTextEditor(model: model, onSend: send)
-            Divider()
+                .background(Color(nsColor: EditorAppearance.canvas))
+            Color(nsColor: EditorAppearance.separator).frame(height: 1 / displayScale)
             toolbar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Color(nsColor: EditorAppearance.chrome))
+        .clipShape(RoundedRectangle(cornerRadius: EditorAppearance.cornerRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: EditorAppearance.cornerRadius, style: .continuous)
+                .strokeBorder(Color(nsColor: EditorAppearance.outline), lineWidth: 1 / displayScale)
+                .allowsHitTesting(false)
+        }
         .onAppear {
             if let message = model.recoveryMessage {
                 let alert = NSAlert()
-                alert.messageText = "无法恢复草稿"
+                alert.messageText = EditorLanguage.text("无法恢复草稿", "Unable to Restore Draft")
                 alert.informativeText = message
                 alert.runModal()
             }
@@ -61,16 +72,21 @@ struct NoteEditorView: View {
     }
 
     private var header: some View {
-        HStack {
+        HStack(spacing: 8) {
+            Image(nsImage: NSImage(named: "AppIcon") ?? NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath))
+                .resizable()
+                .scaledToFit()
+                .frame(width: 20, height: 20)
+                .accessibilityHidden(true)
             Text("NoteMenu")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.primary)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color(nsColor: EditorAppearance.title))
             if model.isSaving {
                 ProgressView()
                     .controlSize(.small)
                     .frame(width: 14, height: 14)
-                    .help("正在保存至备忘录…")
-                    .accessibilityLabel("正在保存至备忘录")
+                    .help(EditorLanguage.text("正在保存至备忘录…", "Saving to Notes…"))
+                    .accessibilityLabel(EditorLanguage.text("正在保存至备忘录", "Saving to Notes"))
             }
             Spacer()
             HStack(spacing: 8) {
@@ -82,12 +98,12 @@ struct NoteEditorView: View {
                         .font(.system(size: 11))
                         .frame(width: 22, height: 22)
                         .foregroundStyle(isPinned
-                            ? Color(red: 251 / 255, green: 211 / 255, blue: 46 / 255)
-                            : Color.secondary)
+                            ? Color(nsColor: EditorAppearance.selectedForeground)
+                            : Color(nsColor: EditorAppearance.secondary))
                 }
                 .buttonStyle(.borderless)
                 .modifier(FormatControlHover())
-                .help(isPinned ? "取消置顶" : "置顶")
+                .help(isPinned ? EditorLanguage.text("取消置顶", "Unpin") : EditorLanguage.text("置顶", "Keep on Top"))
                 Button {
                     showSavedNotice = false
                     onClose()
@@ -95,23 +111,24 @@ struct NoteEditorView: View {
                     Image(systemName: "xmark")
                         .font(.system(size: 11))
                         .frame(width: 22, height: 22)
-                        .foregroundStyle(Color.secondary)
+                        .foregroundStyle(Color(nsColor: EditorAppearance.secondary))
                 }
                 .buttonStyle(.borderless)
                 .modifier(FormatControlHover())
-                .help("关闭")
+                .help(EditorLanguage.text("关闭", "Close"))
             }
         }
-        .padding(.horizontal, 12)
-        .frame(height: Self.barHeight)
+        .padding(.horizontal, EditorAppearance.horizontalInset)
+        .frame(height: EditorAppearance.headerHeight)
         .overlay {
             if showSavedNotice {
-                Text("已保存至系统备忘录")
+                Text(EditorLanguage.text("已保存至系统备忘录", "Saved to Apple Notes"))
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(Color(nsColor: .tertiaryLabelColor))
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
-                    .padding(.horizontal, 64)
+                    .padding(.leading, 130)
+                    .padding(.trailing, 84)
                     .allowsHitTesting(false)
             }
         }
@@ -126,69 +143,70 @@ struct NoteEditorView: View {
     private var toolbar: some View {
         HStack(spacing: 4) {
             Menu {
-                blockButton("一级标题", kind: .heading(1))
-                blockButton("正文", kind: .body)
-                blockButton("代码块", kind: .codeLine)
+                blockButton(EditorLanguage.text("一级标题", "Heading"), kind: .heading(1))
+                blockButton(EditorLanguage.text("正文", "Body"), kind: .body)
+                blockButton(EditorLanguage.text("代码块", "Code Block"), kind: .codeLine)
             } label: {
                 Text("#").font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color(nsColor: EditorAppearance.secondary))
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .modifier(FormatControlHover())
-            .help("段落样式")
+            .help(EditorLanguage.text("段落样式", "Paragraph Style"))
             Menu {
-                Button(action: model.toggleBold) { Label("加粗", systemImage: model.isActive(.bold) ? "checkmark" : "bold") }
-                Button(action: model.toggleItalic) { Label("斜体", systemImage: model.isActive(.italic) ? "checkmark" : "italic") }
-                Button(action: model.toggleUnderline) { Label("下划线", systemImage: model.isActive(.underline) ? "checkmark" : "underline") }
-                Button(action: model.toggleStrike) { Label("删除线", systemImage: model.isActive(.strike) ? "checkmark" : "strikethrough") }
+                Button(action: model.toggleBold) { Label(EditorLanguage.text("加粗", "Bold"), systemImage: model.isActive(.bold) ? "checkmark" : "bold") }
+                Button(action: model.toggleItalic) { Label(EditorLanguage.text("斜体", "Italic"), systemImage: model.isActive(.italic) ? "checkmark" : "italic") }
+                Button(action: model.toggleUnderline) { Label(EditorLanguage.text("下划线", "Underline"), systemImage: model.isActive(.underline) ? "checkmark" : "underline") }
+                Button(action: model.toggleStrike) { Label(EditorLanguage.text("删除线", "Strikethrough"), systemImage: model.isActive(.strike) ? "checkmark" : "strikethrough") }
             } label: {
-                Image(systemName: "textformat")
-                    .foregroundStyle(Color.secondary)
+                Text(verbatim: "Aa")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(Color(nsColor: EditorAppearance.secondary))
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .modifier(FormatControlHover())
-            .help("字体样式")
+            .help(EditorLanguage.text("字体样式", "Text Style"))
 
             Button {
                 model.toggleList(.unordered)
             } label: {
                 Image(systemName: "list.bullet")
-                    .foregroundStyle(model.selectedBlock?.list?.kind == .unordered ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(model.selectedBlock?.list?.kind == .unordered ? Color(nsColor: EditorAppearance.selectedForeground) : Color(nsColor: EditorAppearance.secondary))
             }
             .buttonStyle(.borderless)
             .modifier(FormatControlHover())
-            .help("项目符号列表")
+            .help(EditorLanguage.text("项目符号列表", "Bulleted List"))
 
             Button {
                 model.toggleList(.ordered)
             } label: {
                 Image(systemName: "list.number")
-                    .foregroundStyle(model.selectedBlock?.list?.kind == .ordered ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(model.selectedBlock?.list?.kind == .ordered ? Color(nsColor: EditorAppearance.selectedForeground) : Color(nsColor: EditorAppearance.secondary))
             }
             .buttonStyle(.borderless)
             .modifier(FormatControlHover())
-            .help("编号列表")
+            .help(EditorLanguage.text("编号列表", "Numbered List"))
 
             Button(action: chooseImages) {
                 Image(systemName: "photo")
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(Color(nsColor: EditorAppearance.secondary))
             }
             .buttonStyle(.borderless)
             .modifier(FormatControlHover())
-            .help("添加图片")
-            .accessibilityLabel("添加图片")
+            .help(EditorLanguage.text("添加图片", "Add Image"))
+            .accessibilityLabel(EditorLanguage.text("添加图片", "Add Image"))
 
-            Spacer()
+            Spacer(minLength: 4)
 
-            Divider()
-                .frame(height: 15)
-                .padding(.vertical, 6)
+            Color(nsColor: EditorAppearance.separator)
+                .frame(width: 1 / displayScale, height: 20)
 
             FolderFolderButton(
-                name: targetFolder?.name ?? "默认",
+                name: targetFolder?.name ?? EditorLanguage.text("默认", "Default"),
                 isSelected: targetFolder != nil,
-                fullName: targetFolder.map { "保存目录：\($0.name)" } ?? "保存目录：默认文件夹"
+                fullName: targetFolder.map { EditorLanguage.text("保存目录：\($0.name)", "Save folder: \($0.name)") } ?? EditorLanguage.text("保存目录：默认文件夹", "Save folder: Default")
             ) {
                 showFolderMenu()
             }
@@ -200,21 +218,21 @@ struct NoteEditorView: View {
                     .scaledToFit()
                     .frame(width: 16, height: 16)
                     .foregroundStyle(model.isEmpty && !model.isComposing
-                        ? Color(nsColor: .secondaryLabelColor)
-                        : Color(red: 92 / 255, green: 62 / 255, blue: 16 / 255))
-                    .frame(width: 40, height: 24)
-                    .background(saveBackgroundColor, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        ? Color(nsColor: EditorAppearance.disabledForeground)
+                        : Color(nsColor: EditorAppearance.saveForeground))
+                    .frame(width: 40, height: 28)
+                    .background(saveBackgroundColor, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
             }
             .buttonStyle(.borderless)
             .disabled(model.isEmpty && !model.isComposing)
             .onHover { isSaveHovered = $0 }
             .animation(.easeOut(duration: 0.12), value: isSaveHovered)
-            .accessibilityLabel("存至备忘录")
-            .help(targetFolder.map { "存至备忘录：\($0.name) (⌘ + Enter)" } ?? "存至备忘录(⌘ + Enter)")
+            .accessibilityLabel(EditorLanguage.text("存至备忘录", "Save to Notes"))
+            .help(targetFolder.map { EditorLanguage.text("存至备忘录：\($0.name) (⌘ + Enter)", "Save to Notes: \($0.name) (⌘ + Enter)") } ?? EditorLanguage.text("存至备忘录(⌘ + Enter)", "Save to Notes (⌘ + Enter)"))
         }
-        .padding(.horizontal, 12)
-        .frame(height: Self.barHeight)
+        .padding(.horizontal, EditorAppearance.horizontalInset)
+        .frame(height: EditorAppearance.toolbarHeight)
         .disabled(model.isSaving)
     }
 
@@ -226,26 +244,25 @@ struct NoteEditorView: View {
         var targets: [MenuActionTarget] = []
         switch catalogState {
         case .loading:
-            menu.addItem(Self.makeItem("正在读取备忘录目录…", enabled: false, targets: &targets))
+            menu.addItem(Self.makeItem(EditorLanguage.text("正在读取备忘录目录…", "Loading Notes folders…"), enabled: false, targets: &targets))
         case .failed(let message, let unauthorized):
-            menu.addItem(Self.makeItem("读取目录失败，点按重试", targets: &targets) {
+            menu.addItem(Self.makeItem(EditorLanguage.text("读取目录失败，点按重试", "Couldn’t Load Folders — Retry"), targets: &targets) {
                 self.retryCatalog(message: message, unauthorized: unauthorized)
             })
         case .loaded:
             for item in Self.buildFolderMenuItems(
                 folders: folders,
                 targetFolder: targetFolder,
-                targets: &targets
-            ) { folder in
-                self.selectFolder(folder)
-            } {
+                targets: &targets,
+                select: { folder in self.selectFolder(folder) }
+            ) {
                 menu.addItem(item)
             }
         }
         menu.addItem(.separator())
-        menu.addItem(Self.makeItem("重新载入目录", targets: &targets) { self.reloadCatalog() })
+        menu.addItem(Self.makeItem(EditorLanguage.text("重新载入目录", "Reload Folders"), targets: &targets) { self.reloadCatalog() })
         // popUp 阻塞至菜单关闭，targets 在此期间保持存活（NSMenuItem.target 是弱引用）。
-        withExtendedLifetime(targets) {
+        _ = withExtendedLifetime(targets) {
             menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
         }
     }
@@ -271,7 +288,7 @@ struct NoteEditorView: View {
         let target = targetFolder.flatMap { isTrashedFolder($0) ? nil : $0 }
         let visible = folders.filter { !isTrashedFolder($0) }
 
-        items.append(makeItem("默认文件夹", state: target == nil ? .on : .off, targets: &targets) {
+        items.append(makeItem(EditorLanguage.text("默认文件夹", "Default Folder"), state: target == nil ? .on : .off, targets: &targets) {
             select(nil)
         })
 
@@ -338,7 +355,7 @@ struct NoteEditorView: View {
     private func reloadCatalog() {
         catalogState = .loading
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = Result { try FolderCatalog.fetch() }
+            let result = Result { try folderLoader() }
             DispatchQueue.main.async {
                 switch result {
                 case .success(let list):
@@ -370,8 +387,8 @@ struct NoteEditorView: View {
         if textView.hasMarkedText() { textView.unmarkText() }
         let selection = model.bridge.state.session.selection
         let picker = NSOpenPanel()
-        picker.title = "添加图片"
-        picker.prompt = "插入"
+        picker.title = EditorLanguage.text("添加图片", "Add Image")
+        picker.prompt = EditorLanguage.text("插入", "Insert")
         picker.allowedContentTypes = [.image]
         picker.canChooseDirectories = false
         picker.allowsMultipleSelection = true
@@ -387,8 +404,8 @@ struct NoteEditorView: View {
                 guard let data = try? Data(contentsOf: url), let image = NSImage(data: data),
                       image.isValid else {
                     let alert = NSAlert()
-                    alert.messageText = "无法读取图片"
-                    alert.informativeText = "无法打开“\(url.lastPathComponent)”，请检查文件是否可用或选择其他图片。"
+                    alert.messageText = EditorLanguage.text("无法读取图片", "Unable to Read Image")
+                    alert.informativeText = EditorLanguage.text("无法打开“\(url.lastPathComponent)”，请检查文件是否可用或选择其他图片。", "Couldn’t open “\(url.lastPathComponent)”. Check the file or choose another image.")
                     alert.beginSheetModal(for: window) { _ in window.makeFirstResponder(textView) }
                     return
                 }
@@ -401,10 +418,10 @@ struct NoteEditorView: View {
     }
 
     private var saveBackgroundColor: Color {
-        if model.isEmpty && !model.isComposing { return Color(nsColor: .quaternaryLabelColor) }
+        if model.isEmpty && !model.isComposing { return Color(nsColor: EditorAppearance.disabledBackground) }
         return isSaveHovered
-            ? Color(red: 225 / 255, green: 177 / 255, blue: 28 / 255)
-            : Color(red: 251 / 255, green: 211 / 255, blue: 46 / 255)
+            ? Color(nsColor: EditorAppearance.saveHover)
+            : Color(nsColor: EditorAppearance.save)
     }
 
     private func send() {
@@ -450,25 +467,26 @@ struct NoteEditorView: View {
         let alert = NSAlert()
         alert.alertStyle = .warning
         if unauthorized {
-            alert.messageText = "尚未获得控制「备忘录」的权限"
-            alert.informativeText = message + "\n\n请在系统设置中允许 NoteMenu 控制「备忘录」后重试。"
-            alert.addButton(withTitle: "打开系统设置")
-            alert.addButton(withTitle: "取消")
+            alert.messageText = EditorLanguage.text("尚未获得控制「备忘录」的权限", "Permission to Control Notes Required")
+            alert.informativeText = message + EditorLanguage.text("\n\n请在系统设置中允许 NoteMenu 控制「备忘录」后重试。", "\n\nAllow NoteMenu to control Notes in System Settings, then try again.")
+            alert.addButton(withTitle: EditorLanguage.text("打开系统设置", "Open System Settings"))
+            alert.addButton(withTitle: EditorLanguage.text("取消", "Cancel"))
             let response = alert.runModal()
             if response == .alertFirstButtonReturn,
                let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
                 NSWorkspace.shared.open(url)
             }
         } else {
-            alert.messageText = "保存到备忘录失败"
+            alert.messageText = EditorLanguage.text("保存到备忘录失败", "Unable to Save to Notes")
             alert.informativeText = message
-            alert.addButton(withTitle: "好")
+            alert.addButton(withTitle: EditorLanguage.text("好", "OK"))
             alert.runModal()
         }
     }
 }
 
-private struct FormatControlHover: ViewModifier {    var width: CGFloat? = 28
+private struct FormatControlHover: ViewModifier {
+    var width: CGFloat? = 28
     @Environment(\.isEnabled) private var isEnabled
     @State private var isHovered = false
 
@@ -477,9 +495,7 @@ private struct FormatControlHover: ViewModifier {    var width: CGFloat? = 28
             .frame(width: width, height: 28)
             .background {
                 RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(isHovered && isEnabled
-                        ? Color.primary.opacity(0.08)
-                        : Color.clear)
+                    .fill(isHovered && isEnabled ? Color(nsColor: EditorAppearance.hover) : Color.clear)
             }
             .contentShape(Rectangle())
             .onHover { isHovered = $0 }
@@ -498,19 +514,22 @@ struct FolderFolderButton: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: "folder")
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(Color(nsColor: EditorAppearance.secondary))
                 Text(NoteEditorView.truncatedFolderName(name))
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(Color(nsColor: EditorAppearance.secondary))
                     .lineLimit(1)
                     .frame(width: 56, alignment: .leading)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundStyle(Color(nsColor: EditorAppearance.secondary))
             }
-            .padding(.leading, 6)
+            .padding(.horizontal, 6)
         }
         .buttonStyle(.borderless)
         .modifier(FormatControlHover(width: nil))
         .help(fullName)
-        .accessibilityLabel("选择保存目录")
+        .accessibilityLabel(EditorLanguage.text("选择保存目录", "Choose Save Folder"))
     }
 }
 
