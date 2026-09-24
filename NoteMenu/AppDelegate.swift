@@ -149,13 +149,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(openNotesItem)
         menu.addItem(.separator())
 
-        let tipsItem = NSMenuItem(title: EditorLanguage.text("Show Editing Tips"),
-                                 action: #selector(toggleEditorTips(_:)), keyEquivalent: "")
-        tipsItem.target = self
-        tipsItem.state = EditorTipHistory().enabled ? .on : .off
-        menu.addItem(tipsItem)
-        menu.addItem(.separator())
-
         let launchItem = NSMenuItem(
             title: EditorLanguage.text("Launch at Login"),
             action: #selector(toggleLaunchAtLogin(_:)),
@@ -199,10 +192,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.alertStyle = .warning
         alert.addButton(withTitle: EditorLanguage.text("OK"))
         alert.runModal()
-    }
-
-    @objc private func toggleEditorTips(_ sender: NSMenuItem) {
-        UserDefaults.standard.set(!EditorTipHistory().enabled, forKey: EditorTipHistory.enabledKey)
     }
 
     @objc private func toggleLaunchAtLogin(_ sender: NSMenuItem) {
