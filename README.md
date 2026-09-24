@@ -4,7 +4,7 @@
 
 A lightweight macOS menu bar app for quickly jotting down notes and saving them to Apple Notes with one click.
 
-![NotesMate 输入窗口](docs/design/main-window-v2.png)
+![NotesMate 输入窗口](docs/design/main-window-v3.png)
 
 ## 功能
 
