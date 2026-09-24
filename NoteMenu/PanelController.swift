@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// 边缘 resize 热区划分（窗口坐标，y 轴向上），与 NoteEditorView 的 SwiftUI 拖动手柄几何一致。
+/// 边缘 resize 热区划分（窗口坐标，y 轴向上）。
 /// 光标热区与拖拽命中共用同一套几何，保证「看到什么光标就能拖什么」。
 private func edgeCursorRects(in bounds: NSRect) -> [(rect: NSRect, cursor: NSCursor)] {
     let edge: CGFloat = 6
@@ -23,10 +23,27 @@ private func findTextView(in view: NSView) -> NSTextView? {
     return nil
 }
 
-private final class NotePanel: NSPanel {
+final class NotePanel: NSPanel {
     override var canBecomeKey: Bool { true }
 
+    var resizeHandler: PanelResizeHandler?
+
     private weak var editorTextView: NSTextView?
+    private var trackingEdges: PanelResizeHandler.Edges?
+    private var trackingUpMonitor: Any?
+
+    /// 命中检测：左/右/下边缘（6pt）与两个底角（18pt）。顶部保留给标题栏拖动，不参与。
+    static func edges(at point: NSPoint, in bounds: NSRect) -> PanelResizeHandler.Edges? {
+        let edge: CGFloat = 6
+        let corner: CGFloat = 18
+        if point.x < corner && point.y < corner { return [.left, .bottom] }
+        if point.x >= bounds.width - corner && point.y < corner { return [.right, .bottom] }
+        var edges: PanelResizeHandler.Edges = []
+        if point.x < edge { edges.insert(.left) }
+        if point.x >= bounds.width - edge { edges.insert(.right) }
+        if point.y < edge { edges.insert(.bottom) }
+        return edges.isEmpty ? nil : edges
+    }
 
     private func editorClipView() -> NSView? {
         if editorTextView == nil, let contentView {
@@ -36,14 +53,41 @@ private final class NotePanel: NSPanel {
     }
 
     override func sendEvent(_ event: NSEvent) {
-        if event.type == .leftMouseDown, attachedSheet == nil, let contentView {
-            // Match the 36pt custom title bar; leave side resize handles and Pin/Close untouched.
-            let dragRect = NSRect(x: 6, y: contentView.bounds.height - 36,
-                                  width: max(0, contentView.bounds.width - 90), height: 36)
-            if dragRect.contains(event.locationInWindow) {
-                performDrag(with: event)
+        switch event.type {
+        case .leftMouseDown where attachedSheet == nil:
+            if let contentView, let edges = Self.edges(at: event.locationInWindow, in: contentView.bounds) {
+                // 边缘 resize：AppKit 层追踪拖拽（SwiftUI 手势在浮窗变形/叠加层级下不可靠）。
+                // 吞掉按下事件，编辑器不参与本次拖拽。
+                trackingEdges = edges
+                Self.cursor(for: edges).set()
+                resizeHandler?.beginTracking(at: NSEvent.mouseLocation)
+                trackingUpMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [weak self] _ in
+                    self?.endTracking()
+                    return nil
+                }
                 return
             }
+            if let contentView {
+                // Match the 36pt custom title bar; leave side resize handles and Pin/Close untouched.
+                let dragRect = NSRect(x: 6, y: contentView.bounds.height - 36,
+                                      width: max(0, contentView.bounds.width - 90), height: 36)
+                if dragRect.contains(event.locationInWindow) {
+                    performDrag(with: event)
+                    return
+                }
+            }
+        case .leftMouseDragged:
+            if let trackingEdges {
+                resizeHandler?.resize(edges: trackingEdges)
+                return
+            }
+        case .leftMouseUp:
+            if trackingEdges != nil {
+                endTracking()
+                return
+            }
+        default:
+            break
         }
         super.sendEvent(event)
         // NSTextView 会在事件分发中把自己的 I-beam 盖过 cursorRect 的结果，
@@ -64,6 +108,23 @@ private final class NotePanel: NSPanel {
         } else {
             NSCursor.arrow.set()
         }
+    }
+
+    private func endTracking() {
+        trackingEdges = nil
+        if let trackingUpMonitor {
+            NSEvent.removeMonitor(trackingUpMonitor)
+            self.trackingUpMonitor = nil
+        }
+        resizeHandler?.endResize()
+        NSCursor.arrow.set()
+    }
+
+    private static func cursor(for edges: PanelResizeHandler.Edges) -> NSCursor {
+        if edges.contains([.left, .bottom]) { return .neswDiagonalResize }
+        if edges.contains([.right, .bottom]) { return .nwseDiagonalResize }
+        if edges.contains(.bottom) { return .resizeUpDown }
+        return .resizeLeftRight
     }
 }
 
@@ -131,7 +192,7 @@ private extension NSCursor {
     }
 }
 
-/// 浮窗边缘拖动手柄：由 NoteEditorView 的边缘热区驱动，调整浮窗尺寸并回调持久化。
+/// 浮窗边缘拖动手柄：由 NotePanel 的 AppKit 事件追踪驱动，调整浮窗尺寸并回调持久化。
 /// 只支持左、右、下三个方向，顶部保留给标题栏拖动。
 final class PanelResizeHandler {
     struct Edges: OptionSet {
@@ -141,7 +202,8 @@ final class PanelResizeHandler {
         static let bottom = Edges(rawValue: 1 << 2)
     }
 
-    static let minSize = NSSize(width: 280, height: 240)
+    /// 用户可手动调整的最小尺寸。
+    static let minSize = NSSize(width: 360, height: 200)
 
     private weak var panel: NSPanel?
     private var startFrame: NSRect?
@@ -153,33 +215,47 @@ final class PanelResizeHandler {
         self.panel = panel
     }
 
-    /// 拖动手势进行中调用。位移必须用屏幕坐标（NSEvent.mouseLocation）计算：
-    /// 面板随拖动实时变形，手势所在视图坐标系随之下移，用其 translation 会产生正反馈（增量减半）。
-    func resize(edges: Edges) {
+    /// 按下边缘时调用：记录拖拽基准（frame 与屏幕坐标下的鼠标位置）。
+    func beginTracking(at mouse: NSPoint) {
+        startFrame = panel?.frame
+        startMouse = mouse
+    }
+
+    /// 拖拽中调用。位移用屏幕坐标（面板随拖动实时变形，视图坐标系随之下移会产生正反馈）。
+    func resize(edges: Edges, at mouse: NSPoint = NSEvent.mouseLocation) {
         guard let panel else { return }
-        let mouse = NSEvent.mouseLocation
         if startFrame == nil {
             startFrame = panel.frame
             startMouse = mouse
         }
         guard let startFrame, let startMouse else { return }
         let delta = CGSize(width: mouse.x - startMouse.x, height: mouse.y - startMouse.y)
+        panel.setFrame(Self.frame(applying: delta, to: startFrame, edges: edges), display: true)
+    }
+
+    /// 纯几何：按边与位移计算目标 frame（可离线测试）。
+    static func frame(
+        applying delta: CGSize,
+        to startFrame: NSRect,
+        edges: Edges,
+        minSize: NSSize = PanelResizeHandler.minSize
+    ) -> NSRect {
         var frame = startFrame
         if edges.contains(.right) {
-            frame.size.width = max(Self.minSize.width, startFrame.width + delta.width)
+            frame.size.width = max(minSize.width, startFrame.width + delta.width)
         }
         if edges.contains(.left) {
-            let width = max(Self.minSize.width, startFrame.width - delta.width)
+            let width = max(minSize.width, startFrame.width - delta.width)
             frame.origin.x = startFrame.maxX - width
             frame.size.width = width
         }
         if edges.contains(.bottom) {
             // 屏幕坐标 y 轴向上：向下拖动时 delta.height 为负，高度增加。
-            let height = max(Self.minSize.height, startFrame.height - delta.height)
+            let height = max(minSize.height, startFrame.height - delta.height)
             frame.origin.y = startFrame.maxY - height
             frame.size.height = height
         }
-        panel.setFrame(frame, display: true)
+        return frame
     }
 
     func endResize() {
@@ -191,7 +267,7 @@ final class PanelResizeHandler {
 }
 
 final class PanelController {
-    private let panel: NSPanel
+    private let panel: NotePanel
     private let resizeHandler: PanelResizeHandler
     private var globalEventMonitor: Any?
     private var localEventMonitor: Any?
@@ -200,7 +276,7 @@ final class PanelController {
 
     private static let panelSizeKey = "panelSize"
     private static let panelOriginKey = "panelOrigin"
-    private static let defaultPanelSize = NSSize(width: 340, height: 400)
+    private static let defaultPanelSize = NSSize(width: 400, height: 500)
 
     /// 置顶时点击面板外部不自动收起。
     private(set) var isPinned = false
@@ -225,9 +301,11 @@ final class PanelController {
         panel.isMovableByWindowBackground = false
         panel.isMovable = true
         panel.animationBehavior = .utilityWindow
+        panel.contentMinSize = PanelResizeHandler.minSize
         self.panel = panel
 
         let resizeHandler = PanelResizeHandler(panel: panel)
+        panel.resizeHandler = resizeHandler
         resizeHandler.onResizeEnd = { [weak panel] size in
             UserDefaults.standard.set(NSStringFromSize(size), forKey: Self.panelSizeKey)
             if UserDefaults.standard.string(forKey: Self.panelOriginKey) != nil, let panel {
@@ -238,7 +316,6 @@ final class PanelController {
 
         let contentView = NoteEditorView(
             isPinned: false,
-            resizeHandler: resizeHandler,
             onClose: { [weak self] in self?.close() },
             onPinChanged: { [weak self] pinned in self?.isPinned = pinned },
             onSaved: { [weak self] in
@@ -295,6 +372,12 @@ final class PanelController {
 
     private func positionPanel(relativeTo button: NSStatusBarButton) {
         guard let buttonWindow = button.window else { return }
+        let buttonRect = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
+        // 状态栏窗口的 .screen 在多屏下不可靠（可能与按钮实际所在屏不符），
+        // 按按钮中心所在屏幕选定目标屏；存储原点路径则按与已存 frame 相交面积选屏。
+        let buttonScreen = NSScreen.screens.first {
+            $0.frame.contains(NSPoint(x: buttonRect.midX, y: buttonRect.midY))
+        } ?? buttonWindow.screen ?? NSScreen.main
         if let stored = UserDefaults.standard.string(forKey: Self.panelOriginKey) {
             let origin = NSPointFromString(stored)
             if origin.x.isFinite, origin.y.isFinite {
@@ -303,7 +386,7 @@ final class PanelController {
                     let a = $0.visibleFrame.intersection(savedFrame)
                     let b = $1.visibleFrame.intersection(savedFrame)
                     return a.width * a.height < b.width * b.height
-                } ?? buttonWindow.screen ?? NSScreen.main
+                } ?? buttonScreen ?? NSScreen.main
                 if let screen {
                     // Keep the title bar reachable after a monitor is unplugged or its resolution changes.
                     let visible = screen.visibleFrame.insetBy(dx: 8, dy: 8)
@@ -316,18 +399,15 @@ final class PanelController {
                 }
             }
         }
-        let buttonRect = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
-        let panelSize = panel.frame.size
-        var origin = NSPoint(
-            x: buttonRect.midX - panelSize.width / 2,
-            y: buttonRect.minY - panelSize.height - 6
+        // 面板必须完整落在屏幕可见区域内（四角热区可达）：先按可见区域夹取尺寸，再夹取位置。
+        let visible = ((buttonScreen ?? NSScreen.main)?.visibleFrame ?? .zero).insetBy(dx: 8, dy: 8)
+        let size = NSSize(width: min(panel.frame.width, visible.width),
+                          height: min(panel.frame.height, visible.height))
+        let origin = NSPoint(
+            x: min(max(buttonRect.midX - size.width / 2, visible.minX), visible.maxX - size.width),
+            y: min(max(buttonRect.minY - size.height - 6, visible.minY), visible.maxY - size.height)
         )
-        if let screen = buttonWindow.screen {
-            let frame = screen.visibleFrame
-            origin.x = min(max(origin.x, frame.minX + 8), frame.maxX - panelSize.width - 8)
-            origin.y = max(origin.y, frame.minY + 8)
-        }
-        panel.setFrameOrigin(origin)
+        panel.setFrame(NSRect(origin: origin, size: size), display: false)
     }
 
     private func focusEditor() {

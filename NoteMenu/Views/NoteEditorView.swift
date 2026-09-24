@@ -16,14 +16,12 @@ struct NoteEditorView: View {
         case failed(message: String, unauthorized: Bool)
     }
 
-    private let resizeHandler: PanelResizeHandler
     private let onClose: () -> Void
     private let onPinChanged: (Bool) -> Void
     private let onSaved: () -> Void
 
     init(
         isPinned: Bool,
-        resizeHandler: PanelResizeHandler,
         onClose: @escaping () -> Void,
         onPinChanged: @escaping (Bool) -> Void,
         onSaved: @escaping () -> Void,
@@ -31,7 +29,6 @@ struct NoteEditorView: View {
         saveAction: ((NotesSaver.NoteContent) -> NotesSaver.SaveResult)? = nil
     ) {
         _isPinned = State(initialValue: isPinned)
-        self.resizeHandler = resizeHandler
         self.onClose = onClose
         self.onPinChanged = onPinChanged
         self.onSaved = onSaved
@@ -51,7 +48,6 @@ struct NoteEditorView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .controlBackgroundColor))
-        .overlay(resizeHandles)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .onAppear {
             if let message = model.recoveryMessage {
@@ -62,44 +58,6 @@ struct NoteEditorView: View {
             }
             reloadCatalog()
         }
-    }
-
-    /// 边缘拖动热区：左、右、下边缘及两个底角。顶部用于拖动窗口位置。
-    private var resizeHandles: some View {
-        ZStack {
-            HStack(spacing: 0) {
-                resizeStrip(edges: [.left])
-                    .frame(width: 6)
-                Spacer()
-                resizeStrip(edges: [.right])
-                    .frame(width: 6)
-            }
-            VStack(spacing: 0) {
-                Spacer()
-                resizeStrip(edges: [.bottom])
-                    .frame(height: 6)
-            }
-            VStack(spacing: 0) {
-                Spacer()
-                HStack(spacing: 0) {
-                    resizeStrip(edges: [.left, .bottom])
-                        .frame(width: 18, height: 18)
-                    Spacer()
-                    resizeStrip(edges: [.right, .bottom])
-                        .frame(width: 18, height: 18)
-                }
-            }
-        }
-    }
-
-    private func resizeStrip(edges: PanelResizeHandler.Edges) -> some View {
-        Color.clear
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in resizeHandler.resize(edges: edges) }
-                    .onEnded { _ in resizeHandler.endResize() }
-            )
     }
 
     private var header: some View {
