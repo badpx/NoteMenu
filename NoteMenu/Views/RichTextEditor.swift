@@ -6,7 +6,7 @@ struct RichTextEditor: NSViewRepresentable {
     var onSend: () -> Void = {}
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scroll = NSScrollView()
+        let scroll = EditorScrollView()
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = false
         scroll.autohidesScrollers = true

@@ -282,19 +282,27 @@ final class EditorTextView: NSTextView {
     override func changeColor(_ sender: Any?) {}
     @objc func toggleUnderline(_ sender: Any?) { bridge?.execute(.toggle(.underline), name: EditorLanguage.text("下划线", "Underline")) }
 
-    /// Storage-only transactions do not run NSTextView's native key-edit sizing path.
-    /// Include the glyphless final line in the document height before revealing it.
-    func scrollSelectionAfterLayout() {
+    /// The scroll view may receive its final size after a restored draft was projected.
+    /// Include the glyphless final line when calculating its document height.
+    func updateDocumentHeight() {
         guard let layout = layoutManager, let container = textContainer,
-              let scroll = enclosingScrollView else {
-            scrollRangeToVisible(selectedRange())
-            return
-        }
+              let scroll = enclosingScrollView else { return }
         layout.ensureLayout(for: container)
         let lastLine = layout.extraLineFragmentRect
         let bottom = max(layout.usedRect(for: container).maxY, lastLine.maxY)
         let height = max(scroll.contentSize.height, ceil(bottom + 2 * textContainerInset.height))
         if frame.height != height { setFrameSize(NSSize(width: frame.width, height: height)) }
+    }
+
+    /// Storage-only transactions do not run NSTextView's native key-edit sizing path.
+    func scrollSelectionAfterLayout() {
+        guard let layout = layoutManager, let container = textContainer,
+              enclosingScrollView != nil else {
+            scrollRangeToVisible(selectedRange())
+            return
+        }
+        updateDocumentHeight()
+        let lastLine = layout.extraLineFragmentRect
         let selection = selectedRange()
         if selection.length == 0, selection.location == textStorage?.length,
            bridge?.document.paragraphs.last?.isEmpty == true, !lastLine.isEmpty {

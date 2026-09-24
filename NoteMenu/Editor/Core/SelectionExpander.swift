@@ -7,7 +7,9 @@ enum SelectionExpander {
         let index = min(max(0, paragraphIndex), document.paragraphs.count - 1)
         var scopes: [NSRange] = []
 
-        func append(_ first: Int, _ last: Int) {
+        func append(_ first: Int, _ last: Int, includeEmpty: Bool = false) {
+            // An empty scope leaves the caret visibly unchanged. Advance directly to its parent.
+            guard includeEmpty || document.paragraphs[first...last].contains(where: { !$0.isEmpty }) else { return }
             let start = map.starts[first]
             let end = NSMaxRange(map.range(of: last))
             let range = NSRange(location: start, length: end - start)
@@ -53,7 +55,7 @@ enum SelectionExpander {
             append(index, index)
         }
 
-        append(0, document.paragraphs.count - 1)
+        append(0, document.paragraphs.count - 1, includeEmpty: true)
         return scopes
     }
 }

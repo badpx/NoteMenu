@@ -1,8 +1,24 @@
 import AppKit
+import SwiftUI
 import XCTest
 @testable import NoteMenuEditor
 
 final class EditorAppKitTests: XCTestCase {
+    private struct RestoredEditorHost: NSViewRepresentable {
+        let bridge: AppKitInputBridge
+
+        func makeNSView(context: Context) -> EditorScrollView {
+            let scroll = EditorScrollView()
+            scroll.hasVerticalScroller = true
+            let editor = EditorTextView.make()
+            scroll.documentView = editor
+            bridge.attach(editor)
+            return scroll
+        }
+
+        func updateNSView(_ scroll: EditorScrollView, context: Context) {}
+    }
+
     var bridge: AppKitInputBridge!
     var view: EditorTextView!
     override func setUp() {
@@ -495,7 +511,7 @@ final class EditorAppKitTests: XCTestCase {
             context: nil, characters: "a", charactersIgnoringModifiers: "a", isARepeat: false, keyCode: 0)!
         bridge.select(NSRange(location: 6, length: 0))
         XCTAssertTrue(view.performKeyEquivalent(with: event))
-        XCTAssertEqual(view.selectedRange(), NSRange(location: 6, length: 0))
+        XCTAssertEqual(view.selectedRange(), NSRange(location: 0, length: bridge.document.length))
         XCTAssertTrue(view.performKeyEquivalent(with: event))
         XCTAssertEqual(view.selectedRange(), NSRange(location: 0, length: bridge.document.length))
 
@@ -503,6 +519,31 @@ final class EditorAppKitTests: XCTestCase {
         view.insertText("!", replacementRange: NSRange(location: NSNotFound, length: 0))
         XCTAssertTrue(view.performKeyEquivalent(with: event))
         XCTAssertEqual(view.selectedRange(), NSRange(location: 0, length: 6))
+    }
+
+    func testCommandASkipsEmptyListItem() {
+        let document = EditorDocument(paragraphs: [
+            Paragraph(runs: [InlineRun(text: "before")]),
+            Paragraph(kind: .list(.unordered, 1), runs: [InlineRun(text: "root")]),
+            Paragraph(kind: .list(.unordered, 2)),
+            Paragraph(kind: .list(.unordered, 3), runs: [InlineRun(text: "child")]),
+            Paragraph(kind: .list(.ordered, 1)),
+            Paragraph(runs: [InlineRun(text: "after")]),
+        ])
+        bridge.load(document)
+        let map = PositionMap(document)
+        let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0, windowNumber: 0,
+            context: nil, characters: "a", charactersIgnoringModifiers: "a", isARepeat: false, keyCode: 0)!
+        bridge.select(NSRange(location: map.starts[2], length: 0))
+        XCTAssertTrue(view.performKeyEquivalent(with: event))
+        XCTAssertEqual(view.selectedRange(), NSRange(location: map.starts[1],
+            length: NSMaxRange(map.range(of: 3)) - map.starts[1]))
+        XCTAssertTrue(view.performKeyEquivalent(with: event))
+        XCTAssertEqual(view.selectedRange(), NSRange(location: 0, length: map.length))
+
+        bridge.select(NSRange(location: map.starts[4], length: 0))
+        XCTAssertTrue(view.performKeyEquivalent(with: event))
+        XCTAssertEqual(view.selectedRange(), NSRange(location: 0, length: map.length))
     }
 
     func testCommandASelectsWholeCodeBlockBeforeDocument() {
@@ -898,6 +939,39 @@ final class EditorAppKitTests: XCTestCase {
             XCTAssertLessThanOrEqual(lastLine.maxY, visible.maxY + 1)
             XCTAssertGreaterThanOrEqual(lastLine.minY, visible.minY - 1)
         }
+    }
+
+    func testRestoredLongDraftScrollsImmediatelyAfterAttachment() {
+        _ = NSApplication.shared
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("NoteMenuScrollTest-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let drafts = DraftStore(directory: directory)
+        let draft = EditorDocument.plain((0..<70).map {
+            "Restored line \($0) with a longer sentence to wrap in the editor"
+        }.joined(separator: "\n"))
+        drafts.persist(draft, session: EditorSession(selection: NSRange(location: draft.length, length: 0)))
+        drafts.flush()
+        let model = NoteEditorModel(drafts: drafts)
+        XCTAssertEqual(model.bridge.document.text, draft.text)
+        let hosting = NSHostingView(rootView: RestoredEditorHost(bridge: model.bridge))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 260),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = hosting
+        window.makeKeyAndOrderFront(nil)
+        defer { window.orderOut(nil); window.contentView = nil }
+        hosting.layoutSubtreeIfNeeded()
+        guard let editor = model.bridge.textView, let scroll = editor.enclosingScrollView else {
+            XCTFail("Restored editor did not attach to the scroll view")
+            return
+        }
+        XCTAssertGreaterThan(editor.frame.height, scroll.contentView.bounds.height)
+        let bottom = max(editor.layoutManager!.usedRect(for: editor.textContainer!).maxY,
+                         editor.layoutManager!.extraLineFragmentRect.maxY) + 2 * editor.textContainerInset.height
+        XCTAssertGreaterThanOrEqual(editor.frame.height, ceil(bottom))
+        let clip = scroll.contentView.bounds
+        let end = scroll.contentView.constrainBoundsRect(NSRect(x: 0, y: 10_000, width: clip.width, height: clip.height))
+        XCTAssertGreaterThan(end.minY, 0)
+        XCTAssertGreaterThanOrEqual(end.maxY, editor.frame.height - 1)
     }
 
     func testEightLevelListsAndClipboardRoundTrip() throws {

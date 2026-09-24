@@ -63,6 +63,38 @@ final class EditorCoreTests: XCTestCase {
         XCTAssertEqual(SelectionExpander.scopes(in: document, at: 4), [map.range(of: 4), entireDocument])
     }
 
+    func testEmptySelectionScopesAdvanceToVisibleContent() {
+        let body = EditorDocument.plain("before\n\nafter")
+        XCTAssertEqual(SelectionExpander.scopes(in: body, at: 1), [NSRange(location: 0, length: body.length)])
+
+        let list = EditorDocument(paragraphs: [
+            Paragraph(runs: [InlineRun(text: "before")]),
+            Paragraph(kind: .list(.unordered, 1), runs: [InlineRun(text: "root")]),
+            Paragraph(kind: .list(.unordered, 2)),
+            Paragraph(kind: .list(.unordered, 3), runs: [InlineRun(text: "child")]),
+            Paragraph(kind: .list(.ordered, 1)),
+            Paragraph(runs: [InlineRun(text: "after")]),
+        ])
+        let map = PositionMap(list)
+        let subtree = NSRange(location: map.starts[1], length: NSMaxRange(map.range(of: 3)) - map.starts[1])
+        let all = NSRange(location: 0, length: map.length)
+        XCTAssertEqual(SelectionExpander.scopes(in: list, at: 2), [subtree, all])
+        XCTAssertEqual(SelectionExpander.scopes(in: list, at: 4), [all])
+
+        let code = EditorDocument(paragraphs: [
+            Paragraph(runs: [InlineRun(text: "before")]),
+            Paragraph(kind: .codeLine, runs: [InlineRun(text: "line")]),
+            Paragraph(kind: .codeLine),
+            Paragraph(runs: [InlineRun(text: "after")]),
+        ])
+        let codeMap = PositionMap(code)
+        XCTAssertEqual(SelectionExpander.scopes(in: code, at: 2), [
+            NSRange(location: codeMap.starts[1], length: NSMaxRange(codeMap.range(of: 2)) - codeMap.starts[1]),
+            NSRange(location: 0, length: codeMap.length),
+        ])
+        XCTAssertEqual(SelectionExpander.scopes(in: EditorDocument(), at: 0), [NSRange(location: 0, length: 0)])
+    }
+
     func type(_ text: String, into state: inout EditorSnapshot) {
         for character in text {
             let inserted = String(character)
