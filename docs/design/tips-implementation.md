@@ -39,14 +39,14 @@
 
 ## 复验入口
 
-- `NoteMenu/Editor/EditorHooks.swift`：事件、只读 Context 和功能规则。
-- `NoteMenu/Editor/AppKit/AppKitInputBridge.swift`、`EditorTextView.swift`：真实编辑／按键事件发布。
-- `NoteMenu/Editor/Tips/EditorTipsController.swift`：提示类型、学习记录、队列及计时。
-- `NoteMenu/Editor/Tips/EditorTipsView.swift`：毛玻璃浮层和窗口交互观察。
-- `Tests/NoteMenuEditorTests/EditorTipsTests.swift`：可控时钟和真实编辑器回归。
+- `NotesMate/Editor/EditorHooks.swift`：事件、只读 Context 和功能规则。
+- `NotesMate/Editor/AppKit/AppKitInputBridge.swift`、`EditorTextView.swift`：真实编辑／按键事件发布。
+- `NotesMate/Editor/Tips/EditorTipsController.swift`：提示类型、学习记录、队列及计时。
+- `NotesMate/Editor/Tips/EditorTipsView.swift`：毛玻璃浮层和窗口交互观察。
+- `Tests/NotesMateEditorTests/EditorTipsTests.swift`：可控时钟和真实编辑器回归。
 - `scripts/test-editor.sh`：全量回归。
 - `scripts/capture-design-preview.sh en dark 360 --tips --verify-tips`：英文深色窄窗截图与命中／布局验证。
 
-日志：`build/tips-hooks-tests.log`、`build/tips-hooks-preview-zh.log`、`build/tips-hooks-preview-en.log`。截图：`build/design-preview/`。Debug 应用：`build/debug-icon-composer/Build/Products/Debug/NoteMenu.app`。
+日志：`build/tips-hooks-tests.log`、`build/tips-hooks-preview-zh.log`、`build/tips-hooks-preview-en.log`。截图：`build/design-preview/`。Debug 应用：`build/debug-icon-composer/Build/Products/Debug/NotesMate.app`。
 
 人工验收建议：在新呼起周期内进入代码块、再进入列表，确认各自能提示；关闭窗口后再次进入代码块，确认不重复提示；退出重启后实际进入代码块，确认未习得时可再次提示；用 ↓ 离开代码块后重新呼起，确认对应提示停止。另在多段笔记中第一次 ⌘A 查看提示，第二次连续 ⌘A 扩选并习得。

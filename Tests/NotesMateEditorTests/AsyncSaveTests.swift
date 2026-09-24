@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import NoteMenuEditor
+@testable import NotesMateEditor
 
 final class AsyncSaveTests: XCTestCase {
     func testBackgroundAppleScriptInterpreter() {
@@ -21,7 +21,7 @@ final class AsyncSaveTests: XCTestCase {
         wait(for: [done], timeout: 5)
     }
     func store() -> DraftStore {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("NoteMenuAsyncTests-\(UUID().uuidString)")
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("NotesMateAsyncTests-\(UUID().uuidString)")
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         return DraftStore(directory: directory)
     }

@@ -1,4 +1,4 @@
-# NoteMenu 富文本编辑器设计方案
+# NotesMate 富文本编辑器设计方案
 
 状态：已实施，2026-09-20。设计基于提交 `0655ecf` 的源码及 [EditorSpec.md](EditorSpec.md)；D1–D12 已写入规范 §11。实现说明见 §15，实测结果与尚未完成的真机验收见 [EditorAcceptanceResults.md](EditorAcceptanceResults.md)。下文保留设计时的背景和取舍，不代表全部验收已通过。
 
@@ -41,20 +41,20 @@ flowchart LR
 
 | 源码位置 | 已核实的行为 | 对新组件的影响 |
 |---|---|---|
-| [AppDelegate.swift](../NoteMenu/AppDelegate.swift)，8–23 行 | accessory 应用，通过状态栏按钮打开面板 | 保留入口 |
-| [PanelController.swift](../NoteMenu/PanelController.swift)，197–236、277–280 行 | SwiftUI 承载于 `NSPanel`，通过查找 `NSTextView` 聚焦 | 保留原生视图有利于兼容现有焦点链路 |
-| [RichTextEditor.swift](../NoteMenu/Views/RichTextEditor.swift)，8–29、75–105 行 | Model 持有弱 `textView`，正文/草稿/清空均依赖 storage | 当前没有独立于视图的文档结构 |
+| [AppDelegate.swift](../NotesMate/AppDelegate.swift)，8–23 行 | accessory 应用，通过状态栏按钮打开面板 | 保留入口 |
+| [PanelController.swift](../NotesMate/PanelController.swift)，197–236、277–280 行 | SwiftUI 承载于 `NSPanel`，通过查找 `NSTextView` 聚焦 | 保留原生视图有利于兼容现有焦点链路 |
+| [RichTextEditor.swift](../NotesMate/Views/RichTextEditor.swift)，8–29、75–105 行 | Model 持有弱 `textView`，正文/草稿/清空均依赖 storage | 当前没有独立于视图的文档结构 |
 | 同文件，248–299 行 | 列表通过 `paragraphStyle.textLists` 和 `typingAttributes` 保存；无字符时提前返回 | 空文档的列表状态没有独立落点 |
 | 同文件，350–405 行 | 遍历已有字符段落，只读取 `textLists.first`，用单个计数器绘制 | 无法表达三级独立编号；文末零长度段落不在循环中 |
 | 同文件，420–449 行 | 将光标位置 clamp 到 `length - 1`；用 `paragraphRange.length <= 1` 判空 | 文末下一空段会被错认成上一段；末尾单字符段也可能被当成空项 |
 | 同文件，150–244 行 | 格式按钮直接改 storage 或 typing attributes | 这些路径没有显式注册语义撤销，也没有统一通知持久化 |
 | 同文件，576–586 行 | 字符串变空时统一清除输入属性 | 无法区分“删除最后一个字”和“退出空列表”这两种结构意图 |
 | 同文件，454–489 行 | PNG/TIFF 去重、Finder 文件图片读取已存在；其他粘贴交给系统 | 图片读取逻辑可复用，富文本归一与粘贴来源标记需要补充 |
-| [NoteEditorView.swift](../NoteMenu/Views/NoteEditorView.swift)，103–153 行 | 工具栏仅粗/斜/下划线与两种列表；保存快捷键另有 SwiftUI 入口 | 补齐规范菜单；保存和 IME 门禁必须集中处理 |
-| [HTMLExporter.swift](../NoteMenu/Notes/HTMLExporter.swift)，13–54 行 | 首段强制 H1、后续从第二段输出；仅一层列表标签 | 首段原有格式被改写；需改为完整文档语义导出 |
+| [NoteEditorView.swift](../NotesMate/Views/NoteEditorView.swift)，103–153 行 | 工具栏仅粗/斜/下划线与两种列表；保存快捷键另有 SwiftUI 入口 | 补齐规范菜单；保存和 IME 门禁必须集中处理 |
+| [HTMLExporter.swift](../NotesMate/Notes/HTMLExporter.swift)，13–54 行 | 首段强制 H1、后续从第二段输出；仅一层列表标签 | 首段原有格式被改写；需改为完整文档语义导出 |
 | 同文件，90–101 行 | 根据字体 trait、obliqueness、underline 推断格式 | 无删除线/行内代码/代码块的完整语义通路 |
-| [NotesSaver.swift](../NoteMenu/Notes/NotesSaver.swift)，68–75 行 | 创建笔记同时传 `name` 与 `body`，再添加附件 | 与规范“name 不传”直接不符 |
-| [project.pbxproj](../NoteMenu.xcodeproj/project.pbxproj)，64–85、115–117 行 | 一个应用 target；当前没有测试 target | 验收需要新增核心测试与 AppKit 集成测试入口 |
+| [NotesSaver.swift](../NotesMate/Notes/NotesSaver.swift)，68–75 行 | 创建笔记同时传 `name` 与 `body`，再添加附件 | 与规范“name 不传”直接不符 |
+| [project.pbxproj](../NotesMate.xcodeproj/project.pbxproj)，64–85、115–117 行 | 一个应用 target；当前没有测试 target | 验收需要新增核心测试与 AppKit 集成测试入口 |
 
 当前 `RichTextEditor.swift` 未实现 `insertText` 的 Markdown 触发管线，也没有 Tab/Backspace 的规范矩阵。不能把这份规范理解为当前功能的完整描述。
 
@@ -387,7 +387,7 @@ RTFD 继续作为旧草稿导入来源，但不作为新模型的权威持久化
 ## 11. 模块划分和接口
 
 ```text
-NoteMenu/Editor/
+NotesMate/Editor/
   Core/
     EditorDocument.swift        段落、run、assets、序列化值类型
     EditorSession.swift         选区、输入意图、composition 状态

@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "NoteMenuEditor",
+    name: "NotesMateEditor",
     defaultLocalization: "en",
     platforms: [.macOS(.v13)],
-    products: [.library(name: "NoteMenuEditor", targets: ["NoteMenuEditor"])],
+    products: [.library(name: "NotesMateEditor", targets: ["NotesMateEditor"])],
     targets: [
-        .target(name: "NoteMenuEditor", path: "NoteMenu", exclude: ["Views", "Resources", "AppDelegate.swift", "PanelController.swift", "NoteMenuApp.swift"], sources: ["Editor", "Notes"], resources: [.process("Localization")]),
-        .testTarget(name: "NoteMenuEditorTests", dependencies: ["NoteMenuEditor"], path: "Tests/NoteMenuEditorTests"),
+        .target(name: "NotesMateEditor", path: "NotesMate", exclude: ["Views", "Resources", "AppDelegate.swift", "PanelController.swift", "NotesMateApp.swift"], sources: ["Editor", "Notes"], resources: [.process("Localization")]),
+        .testTarget(name: "NotesMateEditorTests", dependencies: ["NotesMateEditor"], path: "Tests/NotesMateEditorTests"),
     ]
 )

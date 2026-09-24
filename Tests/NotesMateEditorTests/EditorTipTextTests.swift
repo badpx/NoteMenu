@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import NoteMenuEditor
+@testable import NotesMateEditor
 
 final class EditorTipTextTests: XCTestCase {
     func testAllLanguagesUseKeycapsAndKeepChordsTogether() {

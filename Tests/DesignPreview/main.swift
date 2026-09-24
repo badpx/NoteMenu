@@ -21,7 +21,7 @@ var models: [NoteEditorModel] = []
 let tipsMode = args.contains("--tips")
 for state in tipsMode ? ["heading-tip", "indent-tip", "code-tip", "save-tip", "select-all-tip", "information-tip"] : ["empty", "editing"] {
     let editing = state != "empty"
-    let suite = "NoteMenu.preview.\(UUID().uuidString)"
+    let suite = "NotesMate.preview.\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }
     let tips = EditorTipsController(history: EditorTipHistory(defaults: defaults), timing: .init(hover: 0.01))

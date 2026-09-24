@@ -31,11 +31,11 @@ A lightweight macOS menu bar app for quickly jotting down notes and saving them 
 需要 Xcode 16 或更高版本：
 
 ```bash
-xcodebuild -project NoteMenu.xcodeproj -scheme NotesMate -configuration Debug -derivedDataPath build build
+xcodebuild -project NotesMate.xcodeproj -scheme NotesMate -configuration Debug -derivedDataPath build build
 open build/Build/Products/Debug/NotesMate.app
 ```
 
-或直接用 Xcode 打开 `NoteMenu.xcodeproj` 运行。
+或直接用 Xcode 打开 `NotesMate.xcodeproj` 运行。
 
 官网分发使用 Developer ID 签名、公证和 DMG 打包脚本；GitHub Release 发布流程见 [发布说明](docs/Release.md)。
 
@@ -45,19 +45,19 @@ open build/Build/Products/Debug/NotesMate.app
 - 写入备忘录：通过 AppleScript（`make new note` / `make new attachment`）实现，正文直接从模型导出为规范白名单 HTML，图片按顺序追加为附件；保存目标默认为默认文件夹，可经 AppleScript 枚举账户目录后改存指定文件夹，选择持久化在 UserDefaults
 - 草稿：应用支持目录下的 `NotesMate/draft-v1.json` 原子保存模型、输入格式和图片；旧 `draft.rtfd` 迁移源会保留，清空时移为备份以免旧稿恢复
 - 沙盒：开启 App Sandbox，通过 `com.apple.security.temporary-exception.apple-events` 获得控制备忘录的权限
-- 应用图标：使用 `NoteMenu/Resources/AppIcon.icon`，可直接用 Xcode 附带的 Icon Composer 打开。黄色背景由 Composer 定义，`Assets/note.svg` 是文字与笔形镂空的便笺矢量层；外轮廓由系统生成，不在素材里预先添加圆角底板或透明边距。
+- 应用图标：使用 `NotesMate/Resources/AppIcon.icon`，可直接用 Xcode 附带的 Icon Composer 打开。黄色背景由 Composer 定义，`Assets/note.svg` 是文字与笔形镂空的便笺矢量层；外轮廓由系统生成，不在素材里预先添加圆角底板或透明边距。
 - 图标兼容：使用 Xcode 26 构建，macOS 26 使用分层图标，旧版 macOS 使用 Xcode 自动生成的静态回退图标（包含 `AppIcon.icns`），最低系统要求保持 macOS 13.0。原 PNG 和 `AppIcon.appiconset` 保留作设计参考；存在同名 `.icon` 时，Xcode 优先使用 Composer 工程，并自行生成回退图，而不是直接采用原 PNG。旧系统的实际显示效果仍需在对应系统上验证。
-- 菜单栏图标：原图保存在 `assets/notemenu-status-icon.png`，采用白色便笺与透明文字、笔形镂空，生成 18pt 的 1x/2x 资源，以 template 模式适应深浅色背景。
+- 菜单栏图标：原图保存在 `assets/notesmate-status-icon.png`，采用白色便笺与透明文字、笔形镂空，生成 18pt 的 1x/2x 资源，以 template 模式适应深浅色背景。
 
 ## 编辑器测试
 
 ```bash
 bash scripts/test-editor.sh
 bash scripts/build-editor-harness.sh
-open build/NoteMenuEditorHarness.app
+open build/NotesMateEditorHarness.app
 ```
 
-测试宿主复用正式编辑器，草稿和发送生成的 `export.html` 位于 `/private/tmp/NoteMenuEditorHarness`，不会写入系统备忘录。自动化测试需要可访问 AppKit 和剪贴板的 macOS 用户会话。
+测试宿主复用正式编辑器，草稿和发送生成的 `export.html` 位于 `/private/tmp/NotesMateEditorHarness`，不会写入系统备忘录。自动化测试需要可访问 AppKit 和剪贴板的 macOS 用户会话。
 
 格式定义见 [EditorSpec](docs/EditorSpec.md)，架构见 [EditorDesign](docs/EditorDesign.md)，自测证据与待验项目见 [EditorAcceptanceResults](docs/EditorAcceptanceResults.md)。
 
@@ -69,4 +69,4 @@ MIT
 
 界面支持简体中文、繁体中文、英文、日语、韩语、德语、法语、西班牙语、葡萄牙语、意大利语、菲律宾语、印度尼西亚语、马来西亚语、泰语和越南语。按系统首选语言匹配；不支持的语言回退英语。详见 [本地化说明](docs/Localization.md)。
 
-应用名称和共享 Xcode Scheme 均为 **NotesMate**，Bundle ID 为 `com.badpxx.notesmate`。Xcode 项目及 target 仍名为 `NoteMenu`。首次以新标识运行时使用新的草稿和偏好设置，并由系统重新管理自动化授权；不迁移旧版测试数据。
+Xcode 工程、target 和共享 Scheme 均名为 **NotesMate**，Swift Package 模块名为 `NotesMateEditor`。Bundle ID 保持 `com.badpxx.notesmate`；此次工程命名调整不改变现有草稿、偏好设置和自动化授权。

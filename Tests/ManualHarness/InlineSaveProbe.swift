@@ -14,7 +14,7 @@ struct InlineSaveProbe {
         let assets = [a: ImageAsset(data: data1, width: 220, height: 64), b: ImageAsset(data: data2, width: 220, height: 64)]
         let cases = [
             EditorDocument(paragraphs: [
-                Paragraph(kind: .heading(1), runs: [InlineRun(text: "NoteMenu 正式保存验收")]),
+                Paragraph(kind: .heading(1), runs: [InlineRun(text: "NotesMate 正式保存验收")]),
                 Paragraph(runs: [InlineRun(text: "A 前文"), .image(a), InlineRun(text: "B 同段后文")]),
                 Paragraph(kind: .list(.unordered, 1), runs: [InlineRun(text: "列表红图之后"), .image(b)]),
                 Paragraph(kind: .list(.unordered, 2), runs: [InlineRun(text: "第二级列表")]),
@@ -23,7 +23,7 @@ struct InlineSaveProbe {
             EditorDocument(paragraphs: [Paragraph(runs: [.image(b)])], assets: assets)
         ]
         for document in cases {
-            let model = NoteEditorModel(drafts: DraftStore(directory: FileManager.default.temporaryDirectory.appendingPathComponent("NoteMenu-InlineSaveProbe-Drafts")), restore: false)
+            let model = NoteEditorModel(drafts: DraftStore(directory: FileManager.default.temporaryDirectory.appendingPathComponent("NotesMate-InlineSaveProbe-Drafts")), restore: false)
             model.bridge.load(document)
             let content = model.exportContent()!
             var noteID = ""
@@ -37,7 +37,7 @@ struct InlineSaveProbe {
             print("result=\(result), frontmostUnchanged=\(before == NSWorkspace.shared.frontmostApplication?.bundleIdentifier), note=\(noteID)")
             guard result == .success else { exit(1) }
             // The saver has now removed its temporary directory. Export again independently.
-            let root = FileManager.default.temporaryDirectory.appendingPathComponent("NoteMenu-post-save-\(UUID().uuidString)")
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent("NotesMate-post-save-\(UUID().uuidString)")
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: root) }
             let files = content.images.indices.map { root.appendingPathComponent("\($0).png") }

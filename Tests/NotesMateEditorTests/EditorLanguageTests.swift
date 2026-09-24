@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import NoteMenuEditor
+@testable import NotesMateEditor
 
 final class EditorLanguageTests: XCTestCase {
     func testRegionsScriptsAliasesAndUnsupportedPrimaryLanguage() {
@@ -35,7 +35,7 @@ final class EditorLanguageTests: XCTestCase {
             for (key, value) in catalog {
                 XCTAssertFalse(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, "\(language): \(key)")
                 XCTAssertEqual(parameters(value), parameters(key), "\(language): \(key)")
-                XCTAssertFalse(value.contains("NoteMenu"), "\(language): \(key)")
+                XCTAssertFalse(value.contains("NoteMenu"), "\(language): \(key)") // Guard against the former product name.
                 XCTAssertEqual(EditorLanguage.text(key, languages: [language]), value)
             }
         }

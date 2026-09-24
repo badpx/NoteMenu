@@ -1,4 +1,4 @@
-# NoteMenu 编辑器验收矩阵
+# NotesMate 编辑器验收矩阵
 
 对应 [EditorSpec.md](EditorSpec.md) 与 [EditorDesign.md](EditorDesign.md)。D1–D12 已写入规范 §11。本文件保留完整验收预期；2026-09-20 的执行记录、自动化覆盖和真机待验项见 [EditorAcceptanceResults.md](EditorAcceptanceResults.md)，不能将矩阵本身视为通过记录。
 

@@ -11,23 +11,23 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		AA0000000000000000000010 /* Exceptions for "NoteMenu" folder in "NoteMenu" target */ = {
+		AA0000000000000000000010 /* Exceptions for "NotesMate" folder in "NotesMate" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Resources/Info.plist,
-				Resources/NoteMenu.entitlements,
+				Resources/NotesMate.entitlements,
 			);
-			target = AA0000000000000000000005 /* NoteMenu */;
+			target = AA0000000000000000000005 /* NotesMate */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		AA0000000000000000000009 /* NoteMenu */ = {
+		AA0000000000000000000009 /* NotesMate */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				AA0000000000000000000010 /* Exceptions for "NoteMenu" folder in "NoteMenu" target */,
+				AA0000000000000000000010 /* Exceptions for "NotesMate" folder in "NotesMate" target */,
 			);
-			path = NoteMenu;
+			path = NotesMate;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -46,7 +46,7 @@
 		AA0000000000000000000002 = {
 			isa = PBXGroup;
 			children = (
-				AA0000000000000000000009 /* NoteMenu */,
+				AA0000000000000000000009 /* NotesMate */,
 				AA0000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -62,9 +62,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		AA0000000000000000000005 /* NoteMenu */ = {
+		AA0000000000000000000005 /* NotesMate */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = AA000000000000000000000D /* Build configuration list for PBXNativeTarget "NoteMenu" */;
+			buildConfigurationList = AA000000000000000000000D /* Build configuration list for PBXNativeTarget "NotesMate" */;
 			buildPhases = (
 				AA0000000000000000000006 /* Sources */,
 				AA0000000000000000000007 /* Frameworks */,
@@ -75,9 +75,9 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				AA0000000000000000000009 /* NoteMenu */,
+				AA0000000000000000000009 /* NotesMate */,
 			);
-			name = NoteMenu;
+			name = NotesMate;
 			packageProductDependencies = (
 			);
 			productName = NotesMate;
@@ -99,7 +99,7 @@
 					};
 				};
 			};
-			buildConfigurationList = AA000000000000000000000A /* Build configuration list for PBXProject "NoteMenu" */;
+			buildConfigurationList = AA000000000000000000000A /* Build configuration list for PBXProject "NotesMate" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -127,7 +127,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				AA0000000000000000000005 /* NoteMenu */,
+				AA0000000000000000000005 /* NotesMate */,
 			);
 		};
 /* End PBXProject section */
@@ -231,12 +231,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = NoteMenu/Resources/NoteMenu.entitlements;
+				CODE_SIGN_ENTITLEMENTS = NotesMate/Resources/NotesMate.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = NoteMenu/Resources/Info.plist;
+				INFOPLIST_FILE = NotesMate/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -253,12 +253,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = NoteMenu/Resources/NoteMenu.entitlements;
+				CODE_SIGN_ENTITLEMENTS = NotesMate/Resources/NotesMate.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = NoteMenu/Resources/Info.plist;
+				INFOPLIST_FILE = NotesMate/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -274,7 +274,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		AA000000000000000000000A /* Build configuration list for PBXProject "NoteMenu" */ = {
+		AA000000000000000000000A /* Build configuration list for PBXProject "NotesMate" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				AA000000000000000000000B /* Debug */,
@@ -283,7 +283,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		AA000000000000000000000D /* Build configuration list for PBXNativeTarget "NoteMenu" */ = {
+		AA000000000000000000000D /* Build configuration list for PBXNativeTarget "NotesMate" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				AA000000000000000000000E /* Debug */,

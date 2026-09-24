@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import NoteMenuEditor
+@testable import NotesMateEditor
 
 final class NotesSaverTests: XCTestCase {
     func testInProcessScriptRunsOffMainThreadAndPreservesErrors() {
@@ -191,7 +191,7 @@ final class NotesSaverTests: XCTestCase {
     }
 
     func testTargetFolderPersistsAcrossDefaultsRoundTrip() {
-        let suiteName = "NoteMenuTests.\(UUID().uuidString)"
+        let suiteName = "NotesMateTests.\(UUID().uuidString)"
         let suite = UserDefaults(suiteName: suiteName)!
         defer { suite.removePersistentDomain(forName: suiteName) }
         FolderCatalog.defaults = suite

@@ -1,4 +1,4 @@
-# NoteMenu 主窗口设计 V1
+# NotesMate 主窗口设计 V1
 
 设计方向：**一张随时展开的轻便便笺**。保留标题栏、编辑区、底部工具栏三段结构，让文字成为视觉主体；通过留白、控件对齐、表面层次和统一强调色提升完成度。
 
@@ -20,7 +20,7 @@
 |---|---|
 | 窗口 | 圆角 14pt；细边线；柔和外阴影 |
 | 标题栏 / 工具栏 | 高 40pt / 48pt；水平内边距 16pt |
-| 标题 | NoteMenu，14pt Semibold；左侧 16pt 本 App 图标，直接复用 AppIcon 资源 |
+| 标题 | NotesMate，14pt Semibold；左侧 16pt 本 App 图标，直接复用 AppIcon 资源 |
 | 编辑区 | 左右 16pt，顶部约 20pt；白色连续画布 |
 | 正文 / 提示 | 14pt；段内行间距 5pt，正文段后 6pt；提示使用低对比度灰色 |
 | 标题 / 代码 | H1 22pt、H2 18pt、H3 15pt，标题段后 10pt；代码 13pt，保留现有代码边距 |
@@ -46,5 +46,5 @@
 
 - 高精度图：`main-window-v3.png`（实际 App 图标；Aa 展示 Hover，列表选中仅前景强调），并列展示待输入与编辑中状态。
 - 生成方式：内置 image_gen；原版提示词见 [main-window-v1-prompt.txt](main-window-v1-prompt.txt)，图标替换提示词见 [main-window-v2-prompt.txt](main-window-v2-prompt.txt)。
-- 标题图标来源：`NoteMenu/Resources/AppIcon.icon`；设计图使用构建产物中的 AppIcon.icns 导出图作为参考，实现时直接复用应用图标，不单独重画。
+- 标题图标来源：`NotesMate/Resources/AppIcon.icon`；设计图使用构建产物中的 AppIcon.icns 导出图作为参考，实现时直接复用应用图标，不单独重画。
 - 本轮仅交付设计图及说明，不改业务代码、不构建应用。

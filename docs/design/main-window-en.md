@@ -1,6 +1,6 @@
-# NoteMenu English UI — Light & Dark
+# NotesMate English UI — Light & Dark
 
-English versions of the approved light V2 and dark V1 designs. Both boards show the same two states: **Ready to write** and **Writing**. Layout, typography hierarchy, toolbar order, state styling, and the actual NoteMenu app icon remain consistent with the Chinese versions.
+English versions of the approved light V2 and dark V1 designs. Both boards show the same two states: **Ready to write** and **Writing**. Layout, typography hierarchy, toolbar order, state styling, and the actual NotesMate app icon remain consistent with the Chinese versions.
 
 ## Deliverables
 

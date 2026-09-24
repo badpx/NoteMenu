@@ -4,15 +4,15 @@ import SwiftUI
 // Same production view/editor, isolated draft and an inspectable local export instead of Notes.
 let app = NSApplication.shared
 app.setActivationPolicy(.regular)
-let root = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first ?? "/private/tmp/NoteMenuEditorHarness")
+let root = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first ?? "/private/tmp/NotesMateEditorHarness")
 let drafts = DraftStore(directory: root)
 let model = NoteEditorModel(drafts: drafts)
 let panel = NSPanel(contentRect: NSRect(x: 300, y: 200, width: 460, height: 540),
                     styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-panel.title = "NoteMenu Editor Harness"
+panel.title = "NotesMate Editor Harness"
 panel.minSize = NSSize(width: 280, height: 240)
 let view = NoteEditorView(isPinned: true, onClose: { model.flushPendingPersist(); app.terminate(nil) },
-    onPinChanged: { _ in }, onSaved: { panel.title = "NoteMenu Editor Harness — saved locally" }, model: model,
+    onPinChanged: { _ in }, onSaved: { panel.title = "NotesMate Editor Harness — saved locally" }, model: model,
     saveAction: { content in
         // Optional local-only latency injection for observing the saving indicator.
         if let value = try? String(contentsOf: root.appendingPathComponent("save-delay")),

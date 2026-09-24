@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import NoteMenuEditor
+@testable import NotesMateEditor
 
 final class EditorTipsTests: XCTestCase {
     private var defaults: UserDefaults!
@@ -8,7 +8,7 @@ final class EditorTipsTests: XCTestCase {
     private var clock: TimeInterval = 0
     private var jobs: [(TimeInterval, DispatchWorkItem)] = []
     override func setUp() {
-        suite = "NoteMenu.tips.tests.\(UUID().uuidString)"
+        suite = "NotesMate.tips.tests.\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suite)!
     }
     override func tearDown() { defaults.removePersistentDomain(forName: suite) }
@@ -66,9 +66,9 @@ final class EditorTipsTests: XCTestCase {
     func testInitialNoticePrecedesDraftTeachingAndDoesNotReplayOnReopen() {
         let tips = controller()
         tips.onSessionBegan = { [weak tips] in tips?.showFeature(.heading) }
-        tips.beginSession(initialMessage: "欢迎使用 NoteMenu")
+        tips.beginSession(initialMessage: "欢迎使用 NotesMate")
         tips.activate(); pump()
-        XCTAssertEqual(tips.visible?.message, "欢迎使用 NoteMenu")
+        XCTAssertEqual(tips.visible?.message, "欢迎使用 NotesMate")
         XCTAssertEqual(tips.visible?.icon, "info.circle")
         pump(1.99); XCTAssertEqual(tips.visible?.id, "info.session.initial")
         pump(0.02); XCTAssertEqual(tips.visible, .heading)

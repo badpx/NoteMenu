@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
-@testable import NoteMenuEditor
+@testable import NotesMateEditor
 
 final class EditorAppKitTests: XCTestCase {
     private struct RestoredEditorHost: NSViewRepresentable {
@@ -943,7 +943,7 @@ final class EditorAppKitTests: XCTestCase {
 
     func testRestoredLongDraftScrollsImmediatelyAfterAttachment() {
         _ = NSApplication.shared
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("NoteMenuScrollTest-\(UUID().uuidString)")
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("NotesMateScrollTest-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: directory) }
         let drafts = DraftStore(directory: directory)
         let draft = EditorDocument.plain((0..<70).map {

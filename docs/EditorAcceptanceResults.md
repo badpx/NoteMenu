@@ -4,6 +4,8 @@
 
 后续五项交互反馈的修复与复验见 §8。旧产物误测后的重新验收见 §9；仅修复滚动见 §10，八级列表扩展见 §11。之前各节保留历史记录，以最新章节及 EditorSpec 为当前状态。
 
+命名说明：当前工程、target、模块和新构建产物均使用 NotesMate。下文保留历史验收时真实使用的旧进程、测试笔记标题与构建产物路径；复现时请使用本节已更新的命令。
+
 ## 1. 结论
 
 新组件已接入正式应用：语义文档统一管理段落、行内格式和图片；原生 TextKit 负责输入与显示；导出、草稿、工具栏和历史均走模型。
@@ -21,23 +23,23 @@
 | 目标系统 | macOS 13.0 起；本轮没有 macOS 13 运行环境 |
 | 自动化 | XCTest，真实 NSTextView / NSTextStorage / UndoManager / 独立 NSPasteboard |
 | GUI 宿主 | `Tests/ManualHarness/main.swift`，复用正式 NoteEditorView 和 EditorTextView |
-| 草稿隔离 | 自动化每例独立临时目录；GUI 使用 `/private/tmp/NoteMenuEditorHarness` |
+| 草稿隔离 | 自动化每例独立临时目录；GUI 使用 `/private/tmp/NotesMateEditorHarness` |
 | GUI 保存 | 注入本地 HTML writer，没有向系统备忘录写入测试笔记 |
 | 输入法 | 本机已选五笔 `com.apple.inputmethod.SCIM.WBX`；自动化未能建立可观察的真实中文候选会话 |
 
 ```bash
 bash scripts/test-editor.sh
 
-xcodebuild -project NoteMenu.xcodeproj -scheme NotesMate \
+xcodebuild -project NotesMate.xcodeproj -scheme NotesMate \
   -configuration Debug -derivedDataPath build/editor-app CODE_SIGNING_ALLOWED=NO build
-xcodebuild -project NoteMenu.xcodeproj -scheme NotesMate \
+xcodebuild -project NotesMate.xcodeproj -scheme NotesMate \
   -configuration Release -derivedDataPath build/editor-release CODE_SIGNING_ALLOWED=NO build
 
 bash scripts/build-editor-harness.sh
-open build/NoteMenuEditorHarness.app
+open build/NotesMateEditorHarness.app
 ```
 
-本轮 `swift test` 使用 `build/editor-tests` scratch 目录和 `/private/tmp/notemenu-*` 模块/包缓存。受限 shell 中系统剪贴板服务不可用，因此原生测试在允许访问该服务的本机进程中执行；没有改变系统权限设置。构建使用 `CODE_SIGNING_ALLOWED=NO`，不代表已验证分发签名或公证。
+本轮 `swift test` 使用 `build/editor-tests` scratch 目录和 `/private/tmp/notesmate-*` 模块/包缓存。受限 shell 中系统剪贴板服务不可用，因此原生测试在允许访问该服务的本机进程中执行；没有改变系统权限设置。构建使用 `CODE_SIGNING_ALLOWED=NO`，不代表已验证分发签名或公证。
 
 最终测试摘要：`Executed 44 tests, with 0 failures (0 unexpected)`。应用两种配置均返回 `BUILD SUCCEEDED`。构建日志另有本机 CoreSimulator 服务不可用和无 AppIntents 元数据可提取的提示，没有 Swift 编译错误。
 
@@ -45,9 +47,9 @@ open build/NoteMenuEditorHarness.app
 
 ## 3. 自动化证据入口
 
-- [EditorCoreTests.swift](../Tests/NoteMenuEditorTests/EditorCoreTests.swift)：触发子集、键盘矩阵、Unicode、列表编号、HTML 和 800 步固定种子随机命令不变量。
-- [EditorAppKitTests.swift](../Tests/NoteMenuEditorTests/EditorAppKitTests.swift)：原生输入、IME API、历史、剪贴板、空末段布局、增量/全量投影一致性和长文档输入。
-- [EditorPersistenceTests.swift](../Tests/NoteMenuEditorTests/EditorPersistenceTests.swift)：空格式草稿、generation、带图 RTFD 迁移、损坏源保留、保存失败与 revision 保护。
+- [EditorCoreTests.swift](../Tests/NotesMateEditorTests/EditorCoreTests.swift)：触发子集、键盘矩阵、Unicode、列表编号、HTML 和 800 步固定种子随机命令不变量。
+- [EditorAppKitTests.swift](../Tests/NotesMateEditorTests/EditorAppKitTests.swift)：原生输入、IME API、历史、剪贴板、空末段布局、增量/全量投影一致性和长文档输入。
+- [EditorPersistenceTests.swift](../Tests/NotesMateEditorTests/EditorPersistenceTests.swift)：空格式草稿、generation、带图 RTFD 迁移、损坏源保留、保存失败与 revision 保护。
 
 投影比较先经过 TextKit 字体 fallback 归一，再比较属性；附件比较数据、尺寸和模型 asset ID，不比较独立 NSTextAttachment 对象地址。随机测试覆盖状态不变量，不宣称覆盖所有随机 IME、鼠标或历史事件。
 

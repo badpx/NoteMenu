@@ -1,4 +1,4 @@
-# NoteMenu Tips 设计规范
+# NotesMate Tips 设计规范
 
 状态：设计提案，尚未实现。当前优先设计输入窗口内的提示；菜单栏技巧页留作后续方案，暂不改动。适用于功能发现、快捷键教学和操作结果反馈；具体提示是否上线仍按功能价值逐条评审。
 
@@ -6,11 +6,11 @@
 
 ## 1. 设计边界
 
-NoteMenu 是菜单栏快速记录工具，主界面为可移动、可缩放的单一输入浮窗。当前默认尺寸为 **380 × 410pt**，最小尺寸为 **360 × 200pt**；标题栏高 40pt、底栏高 48pt。标题栏已有保存进度和保存成功提示，工具栏控件已有悬停帮助，保存或权限失败使用系统对话框。空白编辑区遵循[主窗口设计](main-window-v1.md)的“一行输入提示”约定。
+NotesMate 是菜单栏快速记录工具，主界面为可移动、可缩放的单一输入浮窗。当前默认尺寸为 **380 × 410pt**，最小尺寸为 **360 × 200pt**；标题栏高 40pt、底栏高 48pt。标题栏已有保存进度和保存成功提示，工具栏控件已有悬停帮助，保存或权限失败使用系统对话框。空白编辑区遵循[主窗口设计](main-window-v1.md)的“一行输入提示”约定。
 
 **核心规则：让用户随时能直接写字。** 自动出现的 Tips 只能使用窗口的非编辑区域；不得覆盖正文、选区、光标、输入法候选窗，也不得改变编辑器焦点或滚动位置。更长的说明由用户主动打开。
 
-Apple 的设计指南建议在当前情境提供简短帮助、让反馈强度匹配事件重要性，并谨慎使用会打断工作的警告框。本规范把这些原则落到 NoteMenu 的单浮窗结构中：[提供帮助](https://developer.apple.com/design/human-interface-guidelines/offering-help)、[反馈](https://developer.apple.com/design/human-interface-guidelines/feedback)、[警告](https://developer.apple.com/design/human-interface-guidelines/alerts)。
+Apple 的设计指南建议在当前情境提供简短帮助、让反馈强度匹配事件重要性，并谨慎使用会打断工作的警告框。本规范把这些原则落到 NotesMate 的单浮窗结构中：[提供帮助](https://developer.apple.com/design/human-interface-guidelines/offering-help)、[反馈](https://developer.apple.com/design/human-interface-guidelines/feedback)、[警告](https://developer.apple.com/design/human-interface-guidelines/alerts)。
 
 ## 2. 四种承载方式
 
@@ -27,7 +27,7 @@ Apple 的设计指南建议在当前情境提供简短帮助、让反馈强度�
 
 ```text
 ┌──────────────────────────────────────────────┐
-│ 图标 NoteMenu    [标题栏短提示]     Pin  Close │ 40pt
+│ 图标 NotesMate    [标题栏短提示]     Pin  Close │ 40pt
 ├──────────────────────────────────────────────┤
 │ 现在的想法是…                                  │
 │                                              │
@@ -37,7 +37,7 @@ Apple 的设计指南建议在当前情境提供简短帮助、让反馈强度�
 └──────────────────────────────────────────────┘
 ```
 
-- 标题栏短提示使用现有保存成功提示所在的中间区域，不替换 `NoteMenu` 标题，也不覆盖 Pin / Close 的 **28 × 28pt** 热区。在 360pt 宽度下可用宽度约 140pt；超出的文案应改写，不靠缩小字号硬塞。
+- 标题栏短提示使用现有保存成功提示所在的中间区域，不替换 `NotesMate` 标题，也不覆盖 Pin / Close 的 **28 × 28pt** 热区。在 360pt 宽度下可用宽度约 140pt；超出的文案应改写，不靠缩小字号硬塞。
 - 标题栏短提示采用 11pt 系统字体、单行、自然居中；文字色沿用 `EditorAppearance.secondary`，成功状态可配一个 12pt 勾选符号。与现有深浅色动态色一致，不另造一套高饱和提示色。
 - 技巧页建议宽 **260–300pt**、内容高不超过 **240pt**，最多 4 条；超过时提供“查看全部快捷键”入口，不在弹出层中堆长文。位置由系统按屏幕边界调整。若浮窗处于置顶状态，技巧页仍只出现一层，不与目录菜单或格式菜单叠放。
 - 技巧页是用户主动打开的独立帮助表面。其点击应被浮窗外部点击监控识别为同一交互，不应意外关闭尚在编辑的浮窗。关闭技巧页后，把焦点还给此前的编辑器。
@@ -97,4 +97,4 @@ Apple 的设计指南建议在当前情境提供简短帮助、让反馈强度�
 2. 增加首条自动教学提示，并按 §4 的出现条件和频控验收。未经独立验证的技巧不进入自动队列。
 3. 菜单栏“使用技巧…”及轻量技巧页留待后续讨论；当前不改菜单栏弹层。
 
-当前源码依据：[NoteEditorView.swift](../../NoteMenu/Views/NoteEditorView.swift)、[PanelController.swift](../../NoteMenu/PanelController.swift)、[EditorAppearance.swift](../../NoteMenu/Editor/AppKit/EditorAppearance.swift)、[AppDelegate.swift](../../NoteMenu/AppDelegate.swift)。
+当前源码依据：[NoteEditorView.swift](../../NotesMate/Views/NoteEditorView.swift)、[PanelController.swift](../../NotesMate/PanelController.swift)、[EditorAppearance.swift](../../NotesMate/Editor/AppKit/EditorAppearance.swift)、[AppDelegate.swift](../../NotesMate/AppDelegate.swift)。

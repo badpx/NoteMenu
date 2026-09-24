@@ -64,7 +64,7 @@ archive_path="$work_dir/NotesMate.xcarchive"
 export_path="$work_dir/export"
 
 printf 'Archiving source commit %s\n' "$source_commit"
-xcodebuild -project "$repo_root/NoteMenu.xcodeproj" \
+xcodebuild -project "$repo_root/NotesMate.xcodeproj" \
     -scheme NotesMate -configuration Release -destination 'generic/platform=macOS' \
     -derivedDataPath "$work_dir/DerivedData" -archivePath "$archive_path" \
     "DEVELOPMENT_TEAM=$team_id" 'CODE_SIGN_STYLE=Manual' \

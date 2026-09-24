@@ -17,8 +17,8 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "AA0000000000000000000005"
                BuildableName = "NotesMate.app"
-               BlueprintName = "NoteMenu"
-               ReferencedContainer = "container:NoteMenu.xcodeproj">
+               BlueprintName = "NotesMate"
+               ReferencedContainer = "container:NotesMate.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -47,8 +47,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "AA0000000000000000000005"
             BuildableName = "NotesMate.app"
-            BlueprintName = "NoteMenu"
-            ReferencedContainer = "container:NoteMenu.xcodeproj">
+            BlueprintName = "NotesMate"
+            ReferencedContainer = "container:NotesMate.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -64,8 +64,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "AA0000000000000000000005"
             BuildableName = "NotesMate.app"
-            BlueprintName = "NoteMenu"
-            ReferencedContainer = "container:NoteMenu.xcodeproj">
+            BlueprintName = "NotesMate"
+            ReferencedContainer = "container:NotesMate.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

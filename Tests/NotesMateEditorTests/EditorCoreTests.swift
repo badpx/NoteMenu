@@ -1,5 +1,5 @@
 import XCTest
-@testable import NoteMenuEditor
+@testable import NotesMateEditor
 
 final class EditorCoreTests: XCTestCase {
     func testHierarchicalSelectionScopes() {

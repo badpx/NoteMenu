@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import NoteMenuEditor
+@testable import NotesMateEditor
 
 final class EditorPersistenceTests: XCTestCase {
     private struct LegacyEnvelope: Codable {
@@ -10,7 +10,7 @@ final class EditorPersistenceTests: XCTestCase {
     }
 
     func store() -> DraftStore {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("NoteMenuTests-\(UUID().uuidString)")
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("NotesMateTests-\(UUID().uuidString)")
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         return DraftStore(directory: directory)
     }
