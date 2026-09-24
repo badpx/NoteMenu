@@ -1,6 +1,6 @@
 # 官网分发与 GitHub Release
 
-本项目使用 Xcode 的 `NotesMate` Scheme 构建 `NotesMate.app`。`scripts/build-release.sh` 将 Release archive 导出为 **Developer ID Application** 签名的 App，放入带有“应用程序”快捷方式的 DMG，对 DMG 签名、公证并装订票据。`scripts/publish-release.sh` 校验 DMG、版本、源码提交和远端标签后创建 GitHub Release。脚本不会替你申请证书、创建公证凭据或创建 Git tag。
+本项目使用 Xcode 的 `NotesMate` Scheme 构建 `NotesMate.app`。`scripts/build-release.sh` 将 Release archive 导出为 **Developer ID Application** 签名的 App，放入带有“应用程序”快捷方式的 DMG，对 DMG 签名、公证并装订票据。`scripts/publish-release.sh` 校验 DMG、版本和源码提交后，创建并推送对应的 Git tag，再创建 GitHub Release。脚本不会替你申请证书或创建公证凭据。
 
 ## 首次准备
 
@@ -52,11 +52,9 @@ dist/v1.0/BUILD_NUMBER
 
 ## 发布
 
-在**构建使用的同一个提交**上创建并推送与 `VERSION` 一致的标签。脚本不会自动移动或创建标签，也不会发布与 DMG 版本或 Build Number 不一致的构建。
+构建完成后运行发布脚本即可。它先校验 DMG 和 `BUILD_NUMBER`，再把 `v<版本号>` 注释标签创建在 `SOURCE_COMMIT` 指向的构建提交上，推送到 `origin`，最后创建 GitHub Release。已有同名本地或远端标签时，只有它指向同一构建提交才会继续；脚本不会移动已有标签，也不会发布与 DMG 版本或 Build Number 不一致的构建。如果标签已推送而 Release 创建失败，可修复原因后重新运行同一命令。
 
 ```bash
-git tag -a v1.0 -m 'NotesMate v1.0'
-git push origin v1.0
 scripts/publish-release.sh v1.0
 ```
 

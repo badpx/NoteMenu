@@ -7,9 +7,10 @@ Publish a previously built and notarized NotesMate DMG to GitHub Releases.
 
 Usage: scripts/publish-release.sh v<app-version> [--draft]
 
-The tag must already exist locally and on origin, point to the build's source
-commit, and match the app version. Set RELEASE_NOTES_FILE to use custom notes;
-otherwise GitHub generates release notes.
+After validating the DMG, create an annotated tag at the build's source commit
+if needed, push it to origin, and create the GitHub Release. Existing local or
+remote tags must point to that commit. Set RELEASE_NOTES_FILE to use custom
+notes; otherwise GitHub generates release notes.
 EOF
 }
 
@@ -38,17 +39,28 @@ asset="$release_dir/NotesMate-$tag-macos.dmg"
 
 built_commit="$(< "$release_dir/SOURCE_COMMIT")"
 [[ $built_commit =~ ^[0-9a-f]{40}$ ]] || die 'invalid SOURCE_COMMIT'
-tag_commit="$(git -C "$repo_root" rev-parse --verify "refs/tags/$tag^{commit}" 2>/dev/null)" \
-    || die "local tag $tag does not exist"
-[[ $tag_commit == "$built_commit" ]] || die 'tag does not point to the commit used for this build'
-
-remote_refs="$(git -C "$repo_root" ls-remote --exit-code origin "refs/tags/$tag" "refs/tags/$tag^{}")" \
-    || die "tag $tag is not present on origin"
-remote_commit="$(awk -v tag="$tag" '$2 == "refs/tags/" tag "^{}" { print $1; found=1 } END { if (!found) exit 1 }' <<< "$remote_refs" || true)"
-if [[ -z $remote_commit ]]; then
-    remote_commit="$(awk -v tag="$tag" '$2 == "refs/tags/" tag { print $1 }' <<< "$remote_refs")"
+git -C "$repo_root" cat-file -e "$built_commit^{commit}" \
+    || die 'the commit used for this build is not available locally'
+local_tag_exists=false
+if git -C "$repo_root" show-ref --verify --quiet "refs/tags/$tag"; then
+    local_tag_exists=true
+    tag_commit="$(git -C "$repo_root" rev-parse --verify "refs/tags/$tag^{commit}" 2>/dev/null)" \
+        || die "local tag $tag does not point to a commit"
+    [[ $tag_commit == "$built_commit" ]] || die "local tag $tag points to a different commit"
 fi
-[[ $remote_commit == "$built_commit" ]] || die 'origin tag does not point to the commit used for this build'
+
+remote_refs="$(git -C "$repo_root" ls-remote origin "refs/tags/$tag" "refs/tags/$tag^{}")" \
+    || die 'cannot inspect tags on origin'
+remote_tag_exists=false
+remote_tag_object="$(awk -v tag="$tag" '$2 == "refs/tags/" tag { print $1 }' <<< "$remote_refs")"
+if [[ -n $remote_tag_object ]]; then
+    remote_tag_exists=true
+fi
+remote_commit="$(awk -v tag="$tag" '$2 == "refs/tags/" tag "^{}" { print $1; found=1 } END { if (!found) exit 1 }' <<< "$remote_refs" || true)"
+if [[ $remote_tag_exists == true ]]; then
+    [[ -n $remote_commit ]] || remote_commit="$remote_tag_object"
+    [[ $remote_commit == "$built_commit" ]] || die "origin tag $tag points to a different commit"
+fi
 
 codesign --verify --strict --verbose=2 "$asset"
 image_signature="$(codesign -dv --verbose=4 "$asset" 2>&1)"
@@ -110,6 +122,25 @@ if [[ -n ${RELEASE_NOTES_FILE:-} ]]; then
 fi
 draft_args=()
 if [[ ${2:-} == --draft ]]; then draft_args=(--draft); fi
+
+gh auth status >/dev/null || die 'GitHub CLI is not authenticated'
+if [[ $local_tag_exists == false ]]; then
+    if [[ $remote_tag_exists == true ]]; then
+        git -C "$repo_root" fetch --no-tags origin "refs/tags/$tag:refs/tags/$tag"
+    else
+        git -C "$repo_root" tag -a "$tag" "$built_commit" -m "NotesMate $version"
+    fi
+fi
+if [[ $remote_tag_exists == false ]]; then
+    git -C "$repo_root" push origin "refs/tags/$tag:refs/tags/$tag"
+fi
+published_refs="$(git -C "$repo_root" ls-remote --exit-code origin "refs/tags/$tag" "refs/tags/$tag^{}")" \
+    || die "tag $tag is not present on origin after pushing"
+published_commit="$(awk -v tag="$tag" '$2 == "refs/tags/" tag "^{}" { print $1; found=1 } END { if (!found) exit 1 }' <<< "$published_refs" || true)"
+if [[ -z $published_commit ]]; then
+    published_commit="$(awk -v tag="$tag" '$2 == "refs/tags/" tag { print $1 }' <<< "$published_refs")"
+fi
+[[ $published_commit == "$built_commit" ]] || die "origin tag $tag changed to a different commit"
 
 gh release create "$tag" "$asset" "$release_dir/SHA256SUMS" \
     --verify-tag --title "NotesMate $version" "${notes_args[@]}" "${draft_args[@]}"
