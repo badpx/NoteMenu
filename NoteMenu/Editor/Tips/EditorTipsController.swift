@@ -81,10 +81,12 @@ final class EditorTipsController: ObservableObject {
          enqueue: @escaping (TimeInterval, DispatchWorkItem) -> Void = { DispatchQueue.main.asyncAfter(deadline: .now() + $0, execute: $1) }) {
         self.history = history; self.timing = timing; self.enqueue = enqueue
     }
-    func beginSession() {
+    func beginSession(initialMessage: String? = nil) {
         guard !sessionActive else { return }
         sessionActive = true
         saveHovered = false; saveFocused = false; saveVisitConsumed = false
+        // Initial notices precede teaching requests emitted by draft creation.
+        if let initialMessage { showInformation(id: "session.initial", message: initialMessage) }
         onSessionBegan?()
     }
     func endSession() {
@@ -205,12 +207,11 @@ enum EditorTipContext {
     static func frame(for tip: EditorTip, in size: CGSize) -> CGRect? {
         let width = min(300, size.width - 32)
         guard width >= 180 else { return nil }
-        let textWidth = width - 2 * horizontalPadding - 24 - dismissSize // icon, gaps and dismiss target
+        let textWidth = width - 2 * horizontalPadding - 28 - dismissSize // icon, 10pt/6pt gaps and dismiss target
         let text = (tip.message as NSString).boundingRect(with: NSSize(width: textWidth, height: 1000),
             options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: NSFont.systemFont(ofSize: 12)])
         guard text.height <= 34 else { return nil }
-        // Reduce the card's vertical whitespace without scaling its readable text.
-        let height = (max(24, ceil(text.height) + (text.height > 18 ? 3 : 0)) + 16) * 0.9
+        let height = max(24, ceil(text.height) + (text.height > 18 ? 3 : 0)) + 16
         guard size.height >= height + 20 else { return nil }
         return CGRect(x: (size.width - width) / 2, y: 8, width: width, height: height)
     }

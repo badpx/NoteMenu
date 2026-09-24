@@ -83,7 +83,7 @@ for state in tipsMode ? ["code-tip", "save-tip", "select-all-tip", "information-
             beforeState = model.bridge.state
         }
         if state == "information-tip" {
-            tips.showInformation(id: "preview", message: EditorLanguage.text("这是普通提示，2 秒后自动收起。", "This notice closes automatically after 2 seconds."))
+            tips.showInformation(id: "preview", message: EditorLanguage.text("你好，欢迎使用NoteMenu，\n你可随时记录想法并保存至系统备忘录。", "Welcome to NoteMenu.\nCapture ideas and save to Apple Notes."))
         }
         RunLoop.current.run(until: Date().addingTimeInterval(0.18))
         hosting.layoutSubtreeIfNeeded()

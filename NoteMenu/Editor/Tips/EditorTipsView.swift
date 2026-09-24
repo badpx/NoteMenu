@@ -49,6 +49,7 @@ struct EditorTipOverlay: View {
                             .font(.system(size: 12))
                             .foregroundStyle(Color(nsColor: EditorAppearance.selectedForeground))
                             .frame(width: 12, alignment: .leading)
+                            .padding(.trailing, 4)
                             .accessibilityHidden(true)
                         Text(tip.message)
                             .font(.system(size: 12))

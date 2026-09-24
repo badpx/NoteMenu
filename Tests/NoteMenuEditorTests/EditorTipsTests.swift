@@ -62,6 +62,19 @@ final class EditorTipsTests: XCTestCase {
         relaunched.activate(); relaunched.showFeature(.codeExit); pump()
         XCTAssertEqual(relaunched.visible, .codeExit)
     }
+
+    func testInitialNoticePrecedesDraftTeachingAndDoesNotReplayOnReopen() {
+        let tips = controller()
+        tips.onSessionBegan = { [weak tips] in tips?.showFeature(.heading) }
+        tips.beginSession(initialMessage: "欢迎使用 NoteMenu")
+        tips.activate(); pump()
+        XCTAssertEqual(tips.visible?.message, "欢迎使用 NoteMenu")
+        XCTAssertEqual(tips.visible?.icon, "info.circle")
+        pump(1.99); XCTAssertEqual(tips.visible?.id, "info.session.initial")
+        pump(0.02); XCTAssertEqual(tips.visible, .heading)
+        tips.endSession(); tips.activate(); pump()
+        XCTAssertNil(tips.visible)
+    }
     func testClosingDoesNotLearnButLearningPersistsAcrossLaunches() {
         defaults.set(true, forKey: "tips.learned.code.exit")
         let tips = controller(); tips.activate(); tips.showFeature(.codeExit); pump()

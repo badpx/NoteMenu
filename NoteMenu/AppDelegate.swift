@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotKeyHandler: EventHandlerRef?
     private static let newNoteHotKeyID = EventHotKeyID(signature: 0x4E4D4E55, id: 1)
     private static let openNotesHotKeyID = EventHotKeyID(signature: 0x4E4D4E55, id: 2)
+    private static let didShowFirstLaunchEditorKey = "didShowFirstLaunchEditor"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -27,6 +28,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         registerHotKeys()
+        // Wait until the status item is attached before anchoring the first window.
+        // Persist independently of window/draft state so later launches stay quiet.
+        DispatchQueue.main.async { [weak self] in
+            guard let self,
+                  !UserDefaults.standard.bool(forKey: Self.didShowFirstLaunchEditorKey),
+                  let button = self.statusItem.button else { return }
+            let productName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+                ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "NoteMenu"
+            let welcome = EditorLanguage.text(
+                "你好，欢迎使用\(productName)，\n你可随时记录想法并保存至系统备忘录。",
+                "Welcome to \(productName).\nCapture ideas and save to Apple Notes.")
+            self.panelController.show(relativeTo: button, welcomeMessage: welcome)
+            UserDefaults.standard.set(true, forKey: Self.didShowFirstLaunchEditorKey)
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

@@ -354,8 +354,8 @@ final class PanelController {
         }
     }
 
-    func show(relativeTo button: NSStatusBarButton) {
-        model.tips.beginSession()
+    func show(relativeTo button: NSStatusBarButton, welcomeMessage: String? = nil) {
+        model.tips.beginSession(initialMessage: welcomeMessage)
         anchorButton = button
         positionPanel(relativeTo: button)
         NSApp.activate(ignoringOtherApps: true)
