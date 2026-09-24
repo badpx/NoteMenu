@@ -2,6 +2,67 @@ import XCTest
 @testable import NoteMenuEditor
 
 final class EditorCoreTests: XCTestCase {
+    func testHierarchicalSelectionScopes() {
+        let document = EditorDocument(paragraphs: [
+            Paragraph(runs: [InlineRun(text: "body")]),
+            Paragraph(kind: .codeLine, runs: [InlineRun(text: "code")]),
+            Paragraph(kind: .list(.unordered, 1), runs: [InlineRun(text: "A")]),
+            Paragraph(kind: .list(.ordered, 2), runs: [InlineRun(text: "B")]),
+            Paragraph(kind: .list(.unordered, 3), runs: [InlineRun(text: "C")]),
+            Paragraph(kind: .list(.unordered, 2), runs: [InlineRun(text: "D")]),
+            Paragraph(kind: .list(.unordered, 1), runs: [InlineRun(text: "E")]),
+            Paragraph(kind: .list(.ordered, 1), runs: [InlineRun(text: "F")]),
+            Paragraph(runs: [InlineRun(text: "tail")]),
+        ])
+        let map = PositionMap(document)
+        func range(_ first: Int, _ last: Int) -> NSRange {
+            NSRange(location: map.starts[first], length: NSMaxRange(map.range(of: last)) - map.starts[first])
+        }
+        let all = range(0, 8)
+        XCTAssertEqual(SelectionExpander.scopes(in: document, at: 0), [range(0, 0), all])
+        XCTAssertEqual(SelectionExpander.scopes(in: document, at: 1), [range(1, 1), all])
+        XCTAssertEqual(SelectionExpander.scopes(in: document, at: 2), [range(2, 2), all])
+        XCTAssertEqual(SelectionExpander.scopes(in: document, at: 3), [range(3, 3), range(2, 5), all])
+        XCTAssertEqual(SelectionExpander.scopes(in: document, at: 4), [range(4, 4), range(2, 5), all])
+        XCTAssertEqual(SelectionExpander.scopes(in: document, at: 5), [range(5, 5), range(2, 5), all])
+        XCTAssertEqual(SelectionExpander.scopes(in: document, at: 6), [range(6, 6), all])
+        XCTAssertEqual(SelectionExpander.scopes(in: document, at: 7), [range(7, 7), all])
+        XCTAssertEqual(SelectionExpander.scopes(in: document, at: 8), [range(8, 8), all])
+        XCTAssertEqual(SelectionExpander.scopes(in: .plain("only"), at: 0), [NSRange(location: 0, length: 4)])
+
+        let orphan = EditorDocument(paragraphs: [
+            Paragraph(kind: .list(.unordered, 3), runs: [InlineRun(text: "orphan")]),
+            Paragraph(kind: .list(.unordered, 4), runs: [InlineRun(text: "child")]),
+            Paragraph(runs: [InlineRun(text: "end")]),
+        ])
+        let orphanMap = PositionMap(orphan)
+        XCTAssertEqual(SelectionExpander.scopes(in: orphan, at: 1), [
+            orphanMap.range(of: 1),
+            NSRange(location: 0, length: NSMaxRange(orphanMap.range(of: 1))),
+            NSRange(location: 0, length: orphanMap.length),
+        ])
+    }
+
+    func testCodeBlockSelectionScopes() {
+        let document = EditorDocument(paragraphs: [
+            Paragraph(runs: [InlineRun(text: "before")]),
+            Paragraph(kind: .codeLine, runs: [InlineRun(text: "first")]),
+            Paragraph(kind: .codeLine),
+            Paragraph(kind: .codeLine, runs: [InlineRun(text: "last")]),
+            Paragraph(runs: [InlineRun(text: "between")]),
+            Paragraph(kind: .codeLine, runs: [InlineRun(text: "other")]),
+            Paragraph(runs: [InlineRun(text: "after")]),
+        ])
+        let map = PositionMap(document)
+        let firstBlock = NSRange(location: map.starts[1], length: NSMaxRange(map.range(of: 3)) - map.starts[1])
+        let entireDocument = NSRange(location: 0, length: map.length)
+        for index in 1...3 {
+            XCTAssertEqual(SelectionExpander.scopes(in: document, at: index), [firstBlock, entireDocument])
+        }
+        XCTAssertEqual(SelectionExpander.scopes(in: document, at: 5), [map.range(of: 5), entireDocument])
+        XCTAssertEqual(SelectionExpander.scopes(in: document, at: 4), [map.range(of: 4), entireDocument])
+    }
+
     func type(_ text: String, into state: inout EditorSnapshot) {
         for character in text {
             let inserted = String(character)

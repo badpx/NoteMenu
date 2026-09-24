@@ -448,6 +448,85 @@ final class EditorAppKitTests: XCTestCase {
         XCTAssertEqual(bridge.state.session.selection, NSRange(location: 0, length: 1))
     }
 
+    func testCommandAExpandsListSelectionAndResetsAfterCaretMove() {
+        let document = EditorDocument(paragraphs: [
+            Paragraph(runs: [InlineRun(text: "body")]),
+            Paragraph(kind: .list(.unordered, 1), runs: [InlineRun(text: "root")]),
+            Paragraph(kind: .list(.unordered, 2), runs: [InlineRun(text: "child")]),
+            Paragraph(kind: .list(.unordered, 3), runs: [InlineRun(text: "leaf")]),
+            Paragraph(kind: .list(.unordered, 1), runs: [InlineRun(text: "sibling")]),
+            Paragraph(runs: [InlineRun(text: "tail")]),
+        ])
+        bridge.load(document)
+        let map = PositionMap(document)
+        let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0, windowNumber: 0,
+            context: nil, characters: "a", charactersIgnoringModifiers: "a", isARepeat: false, keyCode: 0)!
+        func press(_ expected: NSRange) {
+            XCTAssertTrue(view.performKeyEquivalent(with: event))
+            XCTAssertEqual(bridge.state.session.selection, expected)
+            XCTAssertEqual(view.selectedRange(), expected)
+        }
+        bridge.select(NSRange(location: map.starts[3] + 2, length: 0))
+        press(map.range(of: 3))
+        press(NSRange(location: map.starts[1], length: NSMaxRange(map.range(of: 3)) - map.starts[1]))
+        press(NSRange(location: 0, length: map.length))
+        press(NSRange(location: 0, length: map.length))
+
+        bridge.select(NSRange(location: map.starts[2] + 1, length: 0))
+        press(map.range(of: 2)) // The first selection excludes its level-three child.
+        press(NSRange(location: map.starts[1], length: NSMaxRange(map.range(of: 3)) - map.starts[1]))
+        press(NSRange(location: 0, length: map.length))
+
+        bridge.select(NSRange(location: map.starts[1] + 1, length: 0))
+        press(map.range(of: 1))
+        press(NSRange(location: 0, length: map.length))
+
+        bridge.select(NSRange(location: map.starts[0] + 2, length: 0))
+        press(map.range(of: 0))
+        press(NSRange(location: 0, length: map.length))
+        view.setSelectedRange(NSRange(location: map.starts[5] + 1, length: 0))
+        view.selectAll(nil) // Menu action follows the same selection path.
+        XCTAssertEqual(view.selectedRange(), map.range(of: 5))
+    }
+
+    func testCommandAOnEmptyParagraphAndAfterEdit() {
+        bridge.load(.plain("first\n\nlast"))
+        let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0, windowNumber: 0,
+            context: nil, characters: "a", charactersIgnoringModifiers: "a", isARepeat: false, keyCode: 0)!
+        bridge.select(NSRange(location: 6, length: 0))
+        XCTAssertTrue(view.performKeyEquivalent(with: event))
+        XCTAssertEqual(view.selectedRange(), NSRange(location: 6, length: 0))
+        XCTAssertTrue(view.performKeyEquivalent(with: event))
+        XCTAssertEqual(view.selectedRange(), NSRange(location: 0, length: bridge.document.length))
+
+        bridge.select(NSRange(location: 2, length: 0))
+        view.insertText("!", replacementRange: NSRange(location: NSNotFound, length: 0))
+        XCTAssertTrue(view.performKeyEquivalent(with: event))
+        XCTAssertEqual(view.selectedRange(), NSRange(location: 0, length: 6))
+    }
+
+    func testCommandASelectsWholeCodeBlockBeforeDocument() {
+        let document = EditorDocument(paragraphs: [
+            Paragraph(runs: [InlineRun(text: "before")]),
+            Paragraph(kind: .codeLine, runs: [InlineRun(text: "first")]),
+            Paragraph(kind: .codeLine),
+            Paragraph(kind: .codeLine, runs: [InlineRun(text: "last")]),
+            Paragraph(runs: [InlineRun(text: "after")]),
+        ])
+        bridge.load(document)
+        let map = PositionMap(document)
+        let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0, windowNumber: 0,
+            context: nil, characters: "a", charactersIgnoringModifiers: "a", isARepeat: false, keyCode: 0)!
+        let block = NSRange(location: map.starts[1], length: NSMaxRange(map.range(of: 3)) - map.starts[1])
+        for index in 1...3 {
+            bridge.select(NSRange(location: map.starts[index], length: 0))
+            XCTAssertTrue(view.performKeyEquivalent(with: event))
+            XCTAssertEqual(view.selectedRange(), block)
+            XCTAssertTrue(view.performKeyEquivalent(with: event))
+            XCTAssertEqual(view.selectedRange(), NSRange(location: 0, length: map.length))
+        }
+    }
+
     func testFormattingEndsCompositionAndKeepsText() {
         for command: EditorCommand in [.block(.heading(2)), .list(.unordered), .list(.ordered)] {
             bridge.load(EditorDocument())

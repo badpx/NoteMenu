@@ -187,6 +187,11 @@ final class EditorTextView: NSTextView {
     }
 
     override func paste(_ sender: Any?) { bridge?.paste(from: .general) }
+    override func selectAll(_ sender: Any?) {
+        guard isEditable else { return }
+        guard let bridge else { super.selectAll(sender); return }
+        bridge.selectNextScope()
+    }
     override func pasteAsPlainText(_ sender: Any?) { bridge?.paste(from: .general, plainOnly: true) }
     override func pasteAsRichText(_ sender: Any?) { bridge?.paste(from: .general) }
     override func copy(_ sender: Any?) { bridge?.copy(to: .general) }

@@ -15,6 +15,12 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
     private var structuralNative = false
     private var suppressedNative = false
     private var listCache: [Int: ListResolver.Item] = [:]
+    private struct SelectionExpansion {
+        let revision: UInt64
+        let scopes: [NSRange]
+        let step: Int
+    }
+    private var selectionExpansion: SelectionExpansion?
     private(set) var positionMap = PositionMap(EditorDocument())
     struct Presentation {
         let document: EditorDocument
@@ -77,6 +83,7 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
     }
 
     func select(_ range: NSRange, userInitiated: Bool = true, affinity: NSSelectionAffinity = .downstream) {
+        selectionExpansion = nil
         state.session.selection = PositionMap(document).clamped(range)
         state.session.affinity = affinity.rawValue
         if userInitiated { state.session.explicitInsertionStyle = false; inheritInsertionStyle() }
@@ -85,6 +92,25 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
         updateTypingAttributes()
         isApplying = false
         onChange?()
+    }
+
+    func selectNextScope() {
+        guard !isComposing else { return }
+        let selection = positionMap.clamped(textView?.selectedRange() ?? state.session.selection)
+        let scopes: [NSRange]
+        let step: Int
+        if let expansion = selectionExpansion,
+           expansion.revision == document.revision,
+           expansion.scopes[expansion.step] == selection {
+            scopes = expansion.scopes
+            step = min(expansion.step + 1, scopes.count - 1)
+        } else {
+            let index = positionMap.position(at: selection.location).index
+            scopes = SelectionExpander.scopes(in: document, at: index)
+            step = 0
+        }
+        select(scopes[step])
+        selectionExpansion = SelectionExpansion(revision: document.revision, scopes: scopes, step: step)
     }
 
     func execute(_ command: EditorCommand, name: String = EditorLanguage.text("格式", "Format")) {
@@ -251,6 +277,7 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
         let selection = PositionMap(document).clamped(view.selectedRange())
         state.session.affinity = view.selectionAffinity.rawValue
         if selection != state.session.selection {
+            selectionExpansion = nil
             state.session.selection = selection
             state.session.explicitInsertionStyle = false
             inheritInsertionStyle()
@@ -373,6 +400,7 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
     var listItems: [Int: ListResolver.Item] { listCache }
 
     private func changed() {
+        selectionExpansion = nil
         positionMap = PositionMap(document)
         listCache = ListResolver.resolve(document)
         textView?.needsDisplay = true
