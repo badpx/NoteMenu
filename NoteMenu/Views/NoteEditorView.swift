@@ -142,31 +142,22 @@ struct NoteEditorView: View {
 
     private var toolbar: some View {
         HStack(spacing: 4) {
-            Menu {
-                blockButton(EditorLanguage.text("一级标题", "Heading"), kind: .heading(1))
-                blockButton(EditorLanguage.text("正文", "Body"), kind: .body)
-                blockButton(EditorLanguage.text("代码块", "Code Block"), kind: .codeLine)
-            } label: {
+            Button(action: showBlockMenu) {
                 Text("#").font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Color(nsColor: EditorAppearance.secondary))
+                    .modifier(FormatControlHover())
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .modifier(FormatControlHover())
+            .buttonStyle(.borderless)
+            .accessibilityLabel(EditorLanguage.text("段落样式", "Paragraph Style"))
             .help(EditorLanguage.text("段落样式", "Paragraph Style"))
-            Menu {
-                Button(action: model.toggleBold) { Label(EditorLanguage.text("加粗", "Bold"), systemImage: model.isActive(.bold) ? "checkmark" : "bold") }
-                Button(action: model.toggleItalic) { Label(EditorLanguage.text("斜体", "Italic"), systemImage: model.isActive(.italic) ? "checkmark" : "italic") }
-                Button(action: model.toggleUnderline) { Label(EditorLanguage.text("下划线", "Underline"), systemImage: model.isActive(.underline) ? "checkmark" : "underline") }
-                Button(action: model.toggleStrike) { Label(EditorLanguage.text("删除线", "Strikethrough"), systemImage: model.isActive(.strike) ? "checkmark" : "strikethrough") }
-            } label: {
+            Button(action: showInlineMenu) {
                 Text(verbatim: "Aa")
                     .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(Color(nsColor: EditorAppearance.secondary))
+                    .modifier(FormatControlHover())
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .modifier(FormatControlHover())
+            .buttonStyle(.borderless)
+            .accessibilityLabel(EditorLanguage.text("字体样式", "Text Style"))
             .help(EditorLanguage.text("字体样式", "Text Style"))
 
             Button {
@@ -174,9 +165,9 @@ struct NoteEditorView: View {
             } label: {
                 Image(systemName: "list.bullet")
                     .foregroundStyle(model.selectedBlock?.list?.kind == .unordered ? Color(nsColor: EditorAppearance.selectedForeground) : Color(nsColor: EditorAppearance.secondary))
+                    .modifier(FormatControlHover())
             }
             .buttonStyle(.borderless)
-            .modifier(FormatControlHover())
             .help(EditorLanguage.text("项目符号列表", "Bulleted List"))
 
             Button {
@@ -184,17 +175,17 @@ struct NoteEditorView: View {
             } label: {
                 Image(systemName: "list.number")
                     .foregroundStyle(model.selectedBlock?.list?.kind == .ordered ? Color(nsColor: EditorAppearance.selectedForeground) : Color(nsColor: EditorAppearance.secondary))
+                    .modifier(FormatControlHover())
             }
             .buttonStyle(.borderless)
-            .modifier(FormatControlHover())
             .help(EditorLanguage.text("编号列表", "Numbered List"))
 
             Button(action: chooseImages) {
                 Image(systemName: "photo")
                     .foregroundStyle(Color(nsColor: EditorAppearance.secondary))
+                    .modifier(FormatControlHover())
             }
             .buttonStyle(.borderless)
-            .modifier(FormatControlHover())
             .help(EditorLanguage.text("添加图片", "Add Image"))
             .accessibilityLabel(EditorLanguage.text("添加图片", "Add Image"))
 
@@ -236,9 +227,34 @@ struct NoteEditorView: View {
         .disabled(model.isSaving)
     }
 
-    /// 以 NSMenu popUp 方式弹出目录选择菜单。
-    /// 不用 SwiftUI Menu：macOS 上 .borderlessButton 样式会桥接为 AppKit NSPopUpButton，
-    /// label 的 SwiftUI 布局修饰器（固定宽度 frame）被忽略，宽度随名称自适应（离屏实测证实）。
+    /// SwiftUI Menu bridges to NSPopUpButton and ignores the label's hover and hit-area
+    /// modifiers. Use a Button for the visible control, then present the native menu.
+    private func showBlockMenu() {
+        let menu = NSMenu()
+        var targets: [MenuActionTarget] = []
+        for (title, kind) in [
+            (EditorLanguage.text("一级标题", "Heading"), BlockKind.heading(1)),
+            (EditorLanguage.text("正文", "Body"), .body),
+            (EditorLanguage.text("代码块", "Code Block"), .codeLine),
+        ] {
+            menu.addItem(Self.makeItem(title, state: model.selectedBlock == kind ? .on : .off, targets: &targets) {
+                model.setBlock(kind)
+            })
+        }
+        popUp(menu, keepingAlive: targets)
+    }
+
+    private func showInlineMenu() {
+        let menu = NSMenu()
+        var targets: [MenuActionTarget] = []
+        menu.addItem(Self.makeItem(EditorLanguage.text("加粗", "Bold"), state: model.isActive(.bold) ? .on : .off, targets: &targets) { model.toggleBold() })
+        menu.addItem(Self.makeItem(EditorLanguage.text("斜体", "Italic"), state: model.isActive(.italic) ? .on : .off, targets: &targets) { model.toggleItalic() })
+        menu.addItem(Self.makeItem(EditorLanguage.text("下划线", "Underline"), state: model.isActive(.underline) ? .on : .off, targets: &targets) { model.toggleUnderline() })
+        menu.addItem(Self.makeItem(EditorLanguage.text("删除线", "Strikethrough"), state: model.isActive(.strike) ? .on : .off, targets: &targets) { model.toggleStrike() })
+        popUp(menu, keepingAlive: targets)
+    }
+
+    /// Use the same native menu presentation for the toolbar's format and folder buttons.
     private func showFolderMenu() {
         let menu = NSMenu()
         var targets: [MenuActionTarget] = []
@@ -261,6 +277,10 @@ struct NoteEditorView: View {
         }
         menu.addItem(.separator())
         menu.addItem(Self.makeItem(EditorLanguage.text("重新载入目录", "Reload Folders"), targets: &targets) { self.reloadCatalog() })
+        popUp(menu, keepingAlive: targets)
+    }
+
+    private func popUp(_ menu: NSMenu, keepingAlive targets: [MenuActionTarget]) {
         // popUp 阻塞至菜单关闭，targets 在此期间保持存活（NSMenuItem.target 是弱引用）。
         _ = withExtendedLifetime(targets) {
             menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
@@ -441,13 +461,6 @@ struct NoteEditorView: View {
         }
     }
 
-    private func blockButton(_ title: String, kind: BlockKind) -> some View {
-        Button { model.setBlock(kind) } label: {
-            if model.selectedBlock == kind { Label(title, systemImage: "checkmark") }
-            else { Text(title) }
-        }
-    }
-
     /// 文件夹名称截断：最多 4 个中文字符宽（全角=1 单位、ASCII=0.5 单位），
     /// 超出部分尾部截断加「…」，保证长名称不撑开工具栏。
     static func truncatedFolderName(_ name: String, maxUnits: Double = 4) -> String {
@@ -485,6 +498,7 @@ struct NoteEditorView: View {
     }
 }
 
+/// Apply inside a toolbar control's label so its hover background is also in the click target.
 private struct FormatControlHover: ViewModifier {
     var width: CGFloat? = 28
     @Environment(\.isEnabled) private var isEnabled
@@ -525,9 +539,9 @@ struct FolderFolderButton: View {
                     .foregroundStyle(Color(nsColor: EditorAppearance.secondary))
             }
             .padding(.horizontal, 6)
+            .modifier(FormatControlHover(width: nil))
         }
         .buttonStyle(.borderless)
-        .modifier(FormatControlHover(width: nil))
         .help(fullName)
         .accessibilityLabel(EditorLanguage.text("选择保存目录", "Choose Save Folder"))
     }

@@ -413,7 +413,15 @@ final class PanelController {
     private func focusEditor() {
         guard let contentView = panel.contentView,
               let textView = findTextView(in: contentView) else { return }
-        panel.makeFirstResponder(textView)
+        guard panel.makeFirstResponder(textView) else { return }
+        // Refresh after the key/first-responder transition and panel ordering have settled.
+        DispatchQueue.main.async { [weak self, weak textView] in
+            guard let self, let textView = textView as? EditorTextView,
+                  self.panel.isVisible, self.panel.isKeyWindow,
+                  self.panel.firstResponder === textView else { return }
+            textView.redrawVisibleSelectionAfterFocus()
+            self.panel.displayIfNeeded()
+        }
     }
 
     // MARK: - 点击外部收起

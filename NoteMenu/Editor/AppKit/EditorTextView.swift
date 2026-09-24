@@ -3,6 +3,23 @@ import AppKit
 final class EditorTextView: NSTextView {
     weak var bridge: AppKitInputBridge?
 
+    /// The panel can reuse a gray selection from its backing store after being hidden.
+    /// Refresh only after the text view has regained first responder status.
+    func redrawVisibleSelectionAfterFocus() {
+        guard selectedRange().length > 0 else { return }
+        let visible = visibleRect
+        if let layout = layoutManager, let container = textContainer {
+            let origin = textContainerOrigin
+            let containerRect = visible.offsetBy(dx: -origin.x, dy: -origin.y)
+            let visibleGlyphs = layout.glyphRange(forBoundingRect: containerRect, in: container)
+            let selectedGlyphs = layout.glyphRange(forCharacterRange: selectedRange(), actualCharacterRange: nil)
+            let overlap = NSIntersectionRange(visibleGlyphs, selectedGlyphs)
+            if overlap.length > 0 { layout.invalidateDisplay(forGlyphRange: overlap) }
+        }
+        setNeedsDisplay(visible)
+        displayIfNeeded()
+    }
+
     static func make() -> EditorTextView {
         let storage = NSTextStorage()
         let layout = EditorLayoutManager()

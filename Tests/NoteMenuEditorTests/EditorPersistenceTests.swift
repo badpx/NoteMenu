@@ -3,6 +3,12 @@ import XCTest
 @testable import NoteMenuEditor
 
 final class EditorPersistenceTests: XCTestCase {
+    private struct LegacyEnvelope: Codable {
+        let version: Int
+        let document: EditorDocument
+        let session: EditorSession
+    }
+
     func store() -> DraftStore {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("NoteMenuTests-\(UUID().uuidString)")
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -128,6 +134,45 @@ final class EditorPersistenceTests: XCTestCase {
         let view = EditorTextView.make(); restored.bridge.attach(view)
         view.insertText("x", replacementRange: NSRange(location: NSNotFound, length: 0))
         XCTAssertTrue(restored.bridge.document.paragraphs[0].runs[0].style.marks.contains(.bold))
+    }
+
+    func testDraftDoesNotStoreOrRestoreSelection() throws {
+        let store = store()
+        let model = NoteEditorModel(drafts: store, restore: false)
+        model.bridge.load(.plain("Keep this text"))
+        model.bridge.select(NSRange(location: 0, length: model.bridge.document.length))
+        model.persistDraft()
+        store.flush()
+
+        let json = try XCTUnwrap(String(data: Data(contentsOf: store.url), encoding: .utf8))
+        XCTAssertFalse(json.contains("\"selection\""))
+        XCTAssertFalse(json.contains("\"affinity\""))
+        let restored = NoteEditorModel(drafts: store)
+        XCTAssertEqual(restored.bridge.document.text, "Keep this text")
+        XCTAssertEqual(restored.bridge.state.session.selection, NSRange(location: 0, length: 0))
+        let view = EditorTextView.make(); restored.bridge.attach(view)
+        XCTAssertEqual(view.selectedRange(), NSRange(location: 0, length: 0))
+    }
+
+    func testOldDraftSelectionIsIgnoredButEmptyTypingIntentSurvives() throws {
+        let store = store()
+        try FileManager.default.createDirectory(at: store.directory, withIntermediateDirectories: true)
+        var selected = EditorSession()
+        selected.selection = NSRange(location: 0, length: 6)
+        try JSONEncoder().encode(LegacyEnvelope(version: 1, document: .plain("legacy"), session: selected))
+            .write(to: store.url)
+        let restored = NoteEditorModel(drafts: store)
+        XCTAssertEqual(restored.bridge.document.text, "legacy")
+        XCTAssertEqual(restored.bridge.state.session.selection, NSRange(location: 0, length: 0))
+
+        var typing = EditorSession()
+        typing.insertionStyle.marks.insert(.bold)
+        typing.explicitInsertionStyle = true
+        try JSONEncoder().encode(LegacyEnvelope(version: 1, document: EditorDocument(), session: typing))
+            .write(to: store.url)
+        let emptyRestored = NoteEditorModel(drafts: store)
+        XCTAssertTrue(emptyRestored.bridge.state.session.insertionStyle.marks.contains(.bold))
+        XCTAssertEqual(emptyRestored.bridge.state.session.selection, NSRange(location: 0, length: 0))
     }
 
     func testLegacyRTFDPackageWithImage_D05() throws {

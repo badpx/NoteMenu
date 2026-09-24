@@ -2,10 +2,29 @@ import AppKit
 
 /// A versioned, self-contained atomic envelope avoids half-written manifest/asset pairs.
 final class DraftStore {
+    /// Disk state keeps typing intent for an empty draft, never the caret or selected range.
+    /// JSONDecoder ignores the old EditorSession selection/affinity keys in existing drafts.
+    struct StoredSession: Codable {
+        var insertionStyle: InlineStyle
+        var explicitInsertionStyle: Bool
+
+        init(_ session: EditorSession) {
+            insertionStyle = session.insertionStyle
+            explicitInsertionStyle = session.explicitInsertionStyle
+        }
+
+        var editorSession: EditorSession {
+            var session = EditorSession()
+            session.insertionStyle = insertionStyle
+            session.explicitInsertionStyle = explicitInsertionStyle
+            return session
+        }
+    }
+
     struct Envelope: Codable {
         var version = 1
         var document: EditorDocument
-        var session: EditorSession?
+        var session: StoredSession?
     }
     let directory: URL
     var url: URL { directory.appendingPathComponent("draft-v1.json") }
@@ -22,6 +41,7 @@ final class DraftStore {
     }
 
     func restore() throws -> EditorDocument? {
+        restoredSession = nil
         if FileManager.default.fileExists(atPath: url.path) {
             do {
                 let envelope = try JSONDecoder().decode(Envelope.self, from: Data(contentsOf: url))
@@ -29,10 +49,10 @@ final class DraftStore {
                 let document = try envelope.document.validated()
                 guard document.assets.values.allSatisfy({ NSImage(data: $0.data) != nil }) else { throw EditorDataError.invalidDocument }
                 if let session = envelope.session {
-                    guard session.insertionStyle.marks.subtracting(.supported).isEmpty, session.affinity <= 1 else { throw EditorDataError.invalidDocument }
+                    guard session.insertionStyle.marks.subtracting(.supported).isEmpty else { throw EditorDataError.invalidDocument }
                     if let font = session.insertionStyle.font, ![12, 14, 15, 16, 18, 22, 24].contains(font.size) { throw EditorDataError.invalidDocument }
                 }
-                restoredSession = envelope.session
+                restoredSession = document.isPristine ? envelope.session?.editorSession : nil
                 return document
             } catch {
                 damagedSource = true
@@ -79,7 +99,8 @@ final class DraftStore {
                         try FileManager.default.moveItem(at: legacyURL, to: directory.appendingPathComponent("draft-legacy-\(UUID().uuidString).rtfd"))
                     }
                 } else {
-                    let data = try JSONEncoder().encode(Envelope(document: snapshot, session: session))
+                    let typingIntent = snapshot.isPristine ? session.map(StoredSession.init) : nil
+                    let data = try JSONEncoder().encode(Envelope(document: snapshot, session: typingIntent))
                     try data.write(to: url, options: .atomic)
                 }
                 lastError = nil
