@@ -19,9 +19,24 @@ cat > "$preview_bundle/Contents/Info.plist" <<'PLIST'
 </dict></plist>
 PLIST
 cp build/debug-icon-composer/Build/Products/Debug/NoteMenu.app/Contents/Resources/{Assets.car,AppIcon.icns} "$preview_bundle/Contents/Resources/"
+if [ "$#" -gt 0 ]; then
+    "$preview_bundle/Contents/MacOS/NoteMenuDesignPreview" "$@"
+    exit
+fi
 for language in zh-Hans en; do
     for appearance in light dark; do
         "$preview_bundle/Contents/MacOS/NoteMenuDesignPreview" "$language" "$appearance" 380
     done
 done
 "$preview_bundle/Contents/MacOS/NoteMenuDesignPreview" en dark 360
+
+# Render the real tip components in both languages/themes, plus wide-window placement.
+for language in zh-Hans en; do
+    for appearance in light dark; do
+        "$preview_bundle/Contents/MacOS/NoteMenuDesignPreview" "$language" "$appearance" 380 --tips
+    done
+done
+"$preview_bundle/Contents/MacOS/NoteMenuDesignPreview" en dark 360 --tips
+"$preview_bundle/Contents/MacOS/NoteMenuDesignPreview" zh-Hans light 720 --tips
+
+"$preview_bundle/Contents/MacOS/NoteMenuDesignPreview" zh-Hans light 380 --tips --verify-tips

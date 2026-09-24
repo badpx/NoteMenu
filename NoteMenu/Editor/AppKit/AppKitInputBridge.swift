@@ -6,6 +6,60 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
     weak var textView: EditorTextView?
     let history = UndoCoordinator()
     var onChange: (() -> Void)?
+    let hooks = EditorHooks()
+    private var dispatchKey: EditorKey?
+    private var inputHookDepth = 0
+    private var observedFormat: BlockKind = .body
+
+    var hookContext: EditorHookContext {
+        let index = positionMap.position(at: state.session.selection.location).index
+        let expansion = selectionExpansion.flatMap {
+            $0.revision == document.revision && $0.scopes[$0.step] == state.session.selection ? $0 : nil
+        }
+        return EditorHookContext(key: dispatchKey, format: document.paragraphs[index].kind,
+            selection: state.session.selection, revision: document.revision, isComposing: isComposing,
+            isPristine: document.isPristine, selectionStage: expansion.map { $0.step + 1 } ?? 0,
+            selectionStageCount: expansion?.scopes.count ?? SelectionExpander.scopes(in: document, at: index).count)
+    }
+    func beginTipSession() {
+        dispatchKey = nil
+        // Reopening resumes the current format; it is not a format transition.
+        // Reset the baseline without synthesizing an enterFormat event.
+        observedFormat = hookContext.format
+        hooks.emit(.sessionStarted, context: hookContext)
+    }
+    func withKeyPress(_ key: EditorKey, _ action: () -> Void) {
+        let previous = dispatchKey
+        dispatchKey = key
+        hooks.emit(.keyPress, context: hookContext)
+        defer { dispatchKey = previous }
+        action()
+        hooks.emit(.afterKeyPress, context: hookContext)
+    }
+    func keyReleased(_ key: EditorKey) {
+        let previous = dispatchKey; dispatchKey = key
+        hooks.emit(.keyRelease, context: hookContext)
+        dispatchKey = previous
+    }
+    private func beginInputHook() {
+        if inputHookDepth == 0 { hooks.emit(.beforeInput, context: hookContext) }
+        inputHookDepth += 1
+    }
+    private func endInputHook(changed: Bool) {
+        inputHookDepth -= 1
+        if inputHookDepth == 0, changed {
+            publishFormatTransition()
+            hooks.emit(.afterInput, context: hookContext)
+        }
+    }
+    private func publishFormatTransition() {
+        guard !isComposing else { return }
+        let current = hookContext.format
+        guard observedFormat != current else { return }
+        let old = observedFormat; observedFormat = current
+        hooks.emit(.leaveFormat(old), context: hookContext)
+        hooks.emit(.enterFormat(current), context: hookContext)
+    }
     var onSave: (() -> Void)?
     private(set) var isApplying = false
     private(set) var nativeDepth = 0
@@ -91,6 +145,8 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
         textView?.setSelectedRange(state.session.selection, affinity: affinity, stillSelecting: false)
         updateTypingAttributes()
         isApplying = false
+        publishFormatTransition()
+        hooks.emit(.selectionChanged, context: hookContext)
         onChange?()
     }
 
@@ -128,6 +184,8 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
         guard !isComposing else { return }
         var next = state
         guard EditorReducer.apply(command, to: &next) else { return }
+        beginInputHook()
+        defer { endInputHook(changed: true) }
         commit(next, name: name)
     }
 
@@ -142,6 +200,8 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
     }
 
     private func restoreHistory(_ snapshot: EditorSnapshot) {
+        beginInputHook()
+        defer { endInputHook(changed: true) }
         let previous = state.document
         state = snapshot
         state.document.revision = previous.revision &+ 1
@@ -170,6 +230,8 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
         let outer = nativeDepth == 0
         let before = state
         let wasComposition = isComposing
+        if outer { beginInputHook() }
+        defer { if outer { endInputHook(changed: before != state) } }
         if outer {
             pendingRange = nil; pendingBefore = nil; structuralNative = false
             if !wasComposition { history.prepareNativeEvent() }
@@ -190,6 +252,7 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
             var next = state
             MarkdownTriggerEngine.apply(plan, to: &next)
             commit(next, name: EditorLanguage.text("自动格式", "Auto Format"))
+            hooks.emit(.markdownShortcutApplied(plan), context: hookContext)
         }
         pendingBefore = nil; pendingRange = nil
     }
@@ -214,6 +277,8 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
     func textDidChange(_ notification: Notification) {
         if isComposing { compositionDidChange(); return }
         guard !isApplying, !isComposing, nativeDepth == 0 else { return }
+        beginInputHook()
+        defer { endInputHook(changed: true) }
         let before = pendingBefore ?? state
         synchronizeNative(from: before)
         if suppressedNative { history.manager.enableUndoRegistration(); suppressedNative = false }
@@ -282,6 +347,8 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
             state.session.explicitInsertionStyle = false
             inheritInsertionStyle()
             updateTypingAttributes()
+            publishFormatTransition()
+            hooks.emit(.selectionChanged, context: hookContext)
             onChange?()
         }
     }
@@ -311,6 +378,8 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
     }
 
     func runMarkedInput(_ action: () -> Void) {
+        beginInputHook()
+        defer { endInputHook(changed: true) }
         beginComposition()
         compositionPresentation = nil
         nativeDepth += 1
@@ -324,6 +393,8 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
 
     func finishComposition() {
         guard nativeDepth == 0, let before = compositionBefore, textView?.hasMarkedText() != true else { return }
+        beginInputHook()
+        defer { endInputHook(changed: before != state) }
         compositionBefore = nil
         compositionPresentation = nil
         pendingRange = nil
@@ -404,6 +475,7 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
         positionMap = PositionMap(document)
         listCache = ListResolver.resolve(document)
         textView?.needsDisplay = true
+        publishFormatTransition()
         onChange?()
     }
 }

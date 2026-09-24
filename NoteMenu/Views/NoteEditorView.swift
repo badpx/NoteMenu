@@ -6,7 +6,10 @@ struct NoteEditorView: View {
     @StateObject private var model: NoteEditorModel
     @State private var isPinned: Bool
     @State private var isSaveHovered = false
+    @FocusState private var saveFocused: Bool
+    @State private var presentingMenuOrSheet = false
     @State private var showSavedNotice = false
+    @State private var savedNoticeGeneration = 0
     @State private var folders: [NotesFolder] = []
     @State private var targetFolder: NotesFolder? = FolderCatalog.target
     @State private var catalogState: CatalogState = .loading
@@ -49,6 +52,7 @@ struct NoteEditorView: View {
             Color(nsColor: EditorAppearance.separator).frame(height: 1 / displayScale)
             RichTextEditor(model: model, onSend: send)
                 .background(Color(nsColor: EditorAppearance.canvas))
+                .overlay { EditorTipOverlay(tips: model.tips) }
             Color(nsColor: EditorAppearance.separator).frame(height: 1 / displayScale)
             toolbar
         }
@@ -60,6 +64,13 @@ struct NoteEditorView: View {
                 .strokeBorder(Color(nsColor: EditorAppearance.outline), lineWidth: 1 / displayScale)
                 .allowsHitTesting(false)
         }
+        .background(TipWindowObserver(tips: model.tips, bridge: model.bridge).frame(width: 0, height: 0))
+        .onChange(of: model.isSaving) { _ in updateTipBlocking() }
+        .onChange(of: showSavedNotice) { _ in updateTipBlocking() }
+        .onChange(of: presentingMenuOrSheet) { _ in updateTipBlocking() }
+        .onChange(of: saveFocused) { model.tips.saveFocus($0) }
+        .onDisappear { model.tips.endSession() }
+        .onReceive(model.tips.activityEvents) { showSavedNotice = false }
         .onAppear {
             if let message = model.recoveryMessage {
                 let alert = NSAlert()
@@ -85,7 +96,7 @@ struct NoteEditorView: View {
                 ProgressView()
                     .controlSize(.small)
                     .frame(width: 14, height: 14)
-                    .help(EditorLanguage.text("正在保存至备忘录…", "Saving to Notes…"))
+                    .accessibilityHint(EditorLanguage.text("正在保存至备忘录…", "Saving to Notes…"))
                     .accessibilityLabel(EditorLanguage.text("正在保存至备忘录", "Saving to Notes"))
             }
             Spacer()
@@ -103,7 +114,8 @@ struct NoteEditorView: View {
                 }
                 .buttonStyle(.borderless)
                 .modifier(FormatControlHover())
-                .help(isPinned ? EditorLanguage.text("取消置顶", "Unpin") : EditorLanguage.text("置顶", "Keep on Top"))
+                .accessibilityLabel(isPinned ? EditorLanguage.text("取消置顶", "Unpin") : EditorLanguage.text("置顶", "Keep on Top"))
+                .accessibilityHint(EditorLanguage.text("点击窗口外时保持打开", "Keep the window open when clicking outside"))
                 Button {
                     showSavedNotice = false
                     onClose()
@@ -115,26 +127,30 @@ struct NoteEditorView: View {
                 }
                 .buttonStyle(.borderless)
                 .modifier(FormatControlHover())
-                .help(EditorLanguage.text("关闭", "Close"))
+                .accessibilityLabel(EditorLanguage.text("关闭输入窗口", "Close Editor"))
+                .accessibilityHint(EditorLanguage.text("草稿会保留", "Your draft will be kept"))
             }
         }
         .padding(.horizontal, EditorAppearance.horizontalInset)
         .frame(height: EditorAppearance.headerHeight)
         .overlay {
             if showSavedNotice {
-                Text(EditorLanguage.text("已保存至系统备忘录", "Saved to Apple Notes"))
+                ViewThatFits(in: .horizontal) {
+                    Text(EditorLanguage.text("已保存至系统备忘录", "Saved to Apple Notes")).fixedSize()
+                    Text(EditorLanguage.text("已保存", "Saved")).fixedSize()
+                }
+                    .accessibilityLabel(EditorLanguage.text("已保存至系统备忘录", "Saved to Apple Notes"))
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(Color(nsColor: .tertiaryLabelColor))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.85)
                     .padding(.leading, 130)
                     .padding(.trailing, 84)
                     .allowsHitTesting(false)
             }
         }
-        .task(id: showSavedNotice) {
+        .task(id: savedNoticeGeneration) {
             guard showSavedNotice else { return }
-            do { try await Task.sleep(nanoseconds: 1_200_000_000) }
+            do { try await Task.sleep(nanoseconds: 2_000_000_000) }
             catch { return }
             showSavedNotice = false
         }
@@ -149,7 +165,7 @@ struct NoteEditorView: View {
             }
             .buttonStyle(.borderless)
             .accessibilityLabel(EditorLanguage.text("段落样式", "Paragraph Style"))
-            .help(EditorLanguage.text("段落样式", "Paragraph Style"))
+            .accessibilityHint(EditorLanguage.text("段落样式", "Paragraph Style"))
             Button(action: showInlineMenu) {
                 Text(verbatim: "Aa")
                     .font(.system(size: 13, weight: .regular))
@@ -158,7 +174,7 @@ struct NoteEditorView: View {
             }
             .buttonStyle(.borderless)
             .accessibilityLabel(EditorLanguage.text("字体样式", "Text Style"))
-            .help(EditorLanguage.text("字体样式", "Text Style"))
+            .accessibilityHint(EditorLanguage.text("字体样式", "Text Style"))
 
             Button {
                 model.toggleList(.unordered)
@@ -168,7 +184,7 @@ struct NoteEditorView: View {
                     .modifier(FormatControlHover())
             }
             .buttonStyle(.borderless)
-            .help(EditorLanguage.text("项目符号列表", "Bulleted List"))
+            .accessibilityLabel(EditorLanguage.text("项目符号列表", "Bulleted List"))
 
             Button {
                 model.toggleList(.ordered)
@@ -178,7 +194,7 @@ struct NoteEditorView: View {
                     .modifier(FormatControlHover())
             }
             .buttonStyle(.borderless)
-            .help(EditorLanguage.text("编号列表", "Numbered List"))
+            .accessibilityLabel(EditorLanguage.text("编号列表", "Numbered List"))
 
             Button(action: chooseImages) {
                 Image(systemName: "photo")
@@ -186,7 +202,7 @@ struct NoteEditorView: View {
                     .modifier(FormatControlHover())
             }
             .buttonStyle(.borderless)
-            .help(EditorLanguage.text("添加图片", "Add Image"))
+            .accessibilityHint(EditorLanguage.text("添加图片", "Add Image"))
             .accessibilityLabel(EditorLanguage.text("添加图片", "Add Image"))
 
             Spacer(minLength: 4)
@@ -217,10 +233,19 @@ struct NoteEditorView: View {
             }
             .buttonStyle(.borderless)
             .disabled(model.isEmpty && !model.isComposing)
-            .onHover { isSaveHovered = $0 }
+            .focused($saveFocused)
+            .onHover {
+                isSaveHovered = $0
+                model.tips.saveHover($0)
+            }
+            .overlay(alignment: .bottomTrailing) {
+                SaveShortcutTip(tips: model.tips).offset(y: -34)
+            }
             .animation(.easeOut(duration: 0.12), value: isSaveHovered)
             .accessibilityLabel(EditorLanguage.text("存至备忘录", "Save to Notes"))
-            .help(targetFolder.map { EditorLanguage.text("存至备忘录：\($0.name) (⌘ + Enter)", "Save to Notes: \($0.name) (⌘ + Enter)") } ?? EditorLanguage.text("存至备忘录(⌘ + Enter)", "Save to Notes (⌘ + Enter)"))
+            .accessibilityHint(model.isEmpty
+                ? EditorLanguage.text("输入内容后可保存", "Add content to save a note")
+                : EditorLanguage.text("Command 加 Return", "Command Return"))
         }
         .padding(.horizontal, EditorAppearance.horizontalInset)
         .frame(height: EditorAppearance.toolbarHeight)
@@ -281,6 +306,9 @@ struct NoteEditorView: View {
     }
 
     private func popUp(_ menu: NSMenu, keepingAlive targets: [MenuActionTarget]) {
+        presentingMenuOrSheet = true
+        model.tips.setBlocked(true)
+        defer { presentingMenuOrSheet = false; updateTipBlocking() }
         // popUp 阻塞至菜单关闭，targets 在此期间保持存活（NSMenuItem.target 是弱引用）。
         _ = withExtendedLifetime(targets) {
             menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
@@ -406,6 +434,8 @@ struct NoteEditorView: View {
         // Commit an active input-method candidate before remembering the insertion point.
         if textView.hasMarkedText() { textView.unmarkText() }
         let selection = model.bridge.state.session.selection
+        presentingMenuOrSheet = true
+        model.tips.setBlocked(true)
         let picker = NSOpenPanel()
         picker.title = EditorLanguage.text("添加图片", "Add Image")
         picker.prompt = EditorLanguage.text("插入", "Insert")
@@ -413,6 +443,7 @@ struct NoteEditorView: View {
         picker.canChooseDirectories = false
         picker.allowsMultipleSelection = true
         picker.beginSheetModal(for: window) { response in
+            defer { presentingMenuOrSheet = false; updateTipBlocking() }
             guard response == .OK else {
                 window.makeFirstResponder(textView)
                 return
@@ -444,14 +475,22 @@ struct NoteEditorView: View {
             : Color(nsColor: EditorAppearance.save)
     }
 
+    private func updateTipBlocking() {
+        model.tips.setBlocked(model.isSaving || showSavedNotice || presentingMenuOrSheet)
+    }
+
     private func send() {
-        guard !model.isSaving else { return }
+        guard !model.isSaving, !model.isEmpty, !model.isComposing else { return }
+        model.tips.activity()
+        model.tips.setBlocked(true)
         showSavedNotice = false
         model.saveAsync(using: saveAction ?? NotesSaver.save) { result in
+            defer { updateTipBlocking() }
             switch result {
             case .success:
                 targetFolder = FolderCatalog.target
                 showSavedNotice = true
+                savedNoticeGeneration += 1
                 DispatchQueue.main.async { onSaved() }
             case .unauthorized(let message):
                 showError(message: message, unauthorized: true)
@@ -476,6 +515,8 @@ struct NoteEditorView: View {
     }
 
     private func showError(message: String, unauthorized: Bool) {
+        model.tips.setBlocked(true)
+        defer { updateTipBlocking() }
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.alertStyle = .warning
@@ -542,7 +583,7 @@ struct FolderFolderButton: View {
             .modifier(FormatControlHover(width: nil))
         }
         .buttonStyle(.borderless)
-        .help(fullName)
+        .accessibilityHint(fullName)
         .accessibilityLabel(EditorLanguage.text("选择保存目录", "Choose Save Folder"))
     }
 }

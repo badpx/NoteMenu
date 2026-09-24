@@ -3,23 +3,53 @@ import SwiftUI
 
 final class NoteEditorModel: ObservableObject {
     let bridge: AppKitInputBridge
+    let tips: EditorTipsController
+    private let featureTips: EditorFeatureTips
     let drafts: DraftStore
     private var pendingPersist: DispatchWorkItem?
     private var lastPersistRevision: UInt64?
+    // An empty draft still exists until explicitly replaced. Window visibility and
+    // document emptiness must not be used as draft-creation signals.
+    private var hasDraft = false
     private(set) var recoveryMessage: String?
     @Published private(set) var isSaving = false
     private static let saveQueue = DispatchQueue(label: "NoteMenu.save", qos: .userInitiated)
 
-    init(drafts: DraftStore = DraftStore(), restore: Bool = true) {
+    init(drafts: DraftStore = DraftStore(), restore: Bool = true, tips: EditorTipsController = EditorTipsController()) {
         self.bridge = AppKitInputBridge()
         self.drafts = drafts
+        self.tips = tips
+        let featureTips = EditorFeatureTips(tips: tips)
+        self.featureTips = featureTips
         if restore {
-            do { if let document = try drafts.restore() { bridge.load(document, session: drafts.restoredSession) } }
-            catch { recoveryMessage = EditorLanguage.text("草稿读取失败，原文件已保留：\(error.localizedDescription)", "Couldn’t restore the draft. The original file has been preserved: \(error.localizedDescription)") }
+            do {
+                if let document = try drafts.restore() {
+                    hasDraft = true
+                    bridge.load(document, session: drafts.restoredSession)
+                }
+            }
+            catch {
+                hasDraft = true // A damaged existing draft is not a newly created draft.
+                recoveryMessage = EditorLanguage.text("草稿读取失败，原文件已保留：\(error.localizedDescription)", "Couldn’t restore the draft. The original file has been preserved: \(error.localizedDescription)")
+            }
         }
+        tips.onSessionBegan = { [weak self] in
+            guard let self else { return }
+            self.bridge.beginTipSession()
+            self.ensureDraft()
+        }
+        tips.canPresent = { [weak bridge] tip in bridge.map { EditorTipContext.canPresent(tip, in: $0) } ?? false }
+        tips.canSave = { [weak self] in
+            guard let self else { return false }
+            return !self.isEmpty && !self.isComposing && !self.isSaving
+        }
+        bridge.hooks.observe { [weak featureTips] hook, context in featureTips?.handle(hook, context: context) }
         bridge.onChange = { [weak self] in
             guard let self else { return }
+            // Programmatically loaded content also resumes an existing draft.
+            if !self.bridge.document.isPristine { self.hasDraft = true }
             self.objectWillChange.send()
+            self.tips.editorChanged()
             guard !self.bridge.isComposing, self.lastPersistRevision != self.bridge.document.revision else { return }
             self.lastPersistRevision = self.bridge.document.revision
             self.pendingPersist?.cancel()
@@ -70,7 +100,15 @@ final class NoteEditorModel: ObservableObject {
     func clear() {
         pendingPersist?.cancel(); pendingPersist = nil
         bridge.load(EditorDocument())
+        hasDraft = false
+        ensureDraft()
         persistDraft()
+    }
+
+    private func ensureDraft() {
+        guard !hasDraft else { return }
+        hasDraft = true
+        bridge.hooks.emit(.draftCreated, context: bridge.hookContext)
     }
 
     func saveAsync(using writer: @escaping (NotesSaver.NoteContent) -> NotesSaver.SaveResult = NotesSaver.save,

@@ -30,5 +30,8 @@ enum EditorAppearance {
     static let saveForeground = color(0x5C3E10, 0x4F390D)
     static let disabledBackground = color(0xE9E9E7, 0x353638)
     static let disabledForeground = color(0xA1A29E, 0x686A6B)
+    static let tipBackground = color(0xFFF8DE, 0x302C21)
+    static let tipText = color(0x5C4A21, 0xE6D9B5)
+    static let tipBorder = color(0xE8DCA8, 0x51462A)
     static let code = color(0xEAEAEA, 0x2C2D2E)
 }

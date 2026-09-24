@@ -103,7 +103,8 @@ final class EditorTextView: NSTextView {
         let paragraph = bridge.document.paragraphs[position.index]
         // Existing following paragraphs use native vertical navigation. Only extend EOF.
         guard position.index == bridge.document.paragraphs.count - 1, paragraph.kind.isCode else {
-            super.moveDown(sender); return
+            super.moveDown(sender)
+            return
         }
         layout.ensureLayout(for: container)
         if !paragraph.isEmpty {
@@ -161,7 +162,27 @@ final class EditorTextView: NSTextView {
         bridge.runNative { super.deleteWordForward(sender) }
     }
 
+    override func keyDown(with event: NSEvent) {
+        guard let bridge else { super.keyDown(with: event); return }
+        bridge.withKeyPress(EditorKey(event)) { super.keyDown(with: event) }
+    }
+    override func keyUp(with event: NSEvent) {
+        bridge?.keyReleased(EditorKey(event))
+        super.keyUp(with: event)
+    }
+
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection([.command, .shift, .option, .control])
+        let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
+        let handled = flags == .command && (["a", "b", "i", "u", "z", "c", "x", "v"].contains(key) || [UInt16(36), 76].contains(event.keyCode))
+            || flags == [.command, .shift] && ["x", "z"].contains(key)
+        guard handled, let bridge, isEditable else { return performEditorKeyEquivalent(with: event) }
+        var result = false
+        bridge.withKeyPress(EditorKey(event)) { result = performEditorKeyEquivalent(with: event) }
+        return result
+    }
+
+    private func performEditorKeyEquivalent(with event: NSEvent) -> Bool {
         guard isEditable else { return false }
         guard let bridge else { return super.performKeyEquivalent(with: event) }
         let flags = event.modifierFlags.intersection([.command, .shift, .control, .option])

@@ -267,6 +267,7 @@ final class PanelResizeHandler {
 }
 
 final class PanelController {
+    private let model = NoteEditorModel()
     private let panel: NotePanel
     private let resizeHandler: PanelResizeHandler
     private var globalEventMonitor: Any?
@@ -321,7 +322,8 @@ final class PanelController {
             onSaved: { [weak self] in
                 guard let self, self.panel.isKeyWindow else { return }
                 self.focusEditor()
-            }
+            },
+            model: model
         )
         let hostingView = NSHostingView(rootView: contentView)
         let container = PanelContentView(frame: NSRect(origin: .zero, size: size))
@@ -353,6 +355,7 @@ final class PanelController {
     }
 
     func show(relativeTo button: NSStatusBarButton) {
+        model.tips.beginSession()
         anchorButton = button
         positionPanel(relativeTo: button)
         NSApp.activate(ignoringOtherApps: true)
@@ -362,6 +365,7 @@ final class PanelController {
     }
 
     func close() {
+        model.tips.endSession()
         // Also capture the final position before hiding, including a just-completed drag.
         if panel.isVisible {
             UserDefaults.standard.set(NSStringFromPoint(panel.frame.origin), forKey: Self.panelOriginKey)
