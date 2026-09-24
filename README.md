@@ -1,4 +1,4 @@
-# NoteMenu
+# NotesMate
 
 一个常驻 macOS 菜单栏的快速笔记录入工具：点击菜单栏图标弹出录入窗口，写完后一键保存到系统「备忘录」。
 
@@ -22,7 +22,7 @@ A lightweight macOS menu bar app for quickly jotting down notes and saving them 
 ## 系统要求
 
 - macOS 13 或更高版本
-- 首次保存笔记时，需要在系统弹窗中允许 NoteMenu 控制「备忘录」（可在 系统设置 → 隐私与安全性 → 自动化 中管理）
+- 首次保存笔记时，需要在系统弹窗中允许 NotesMate 控制「备忘录」（可在 系统设置 → 隐私与安全性 → 自动化 中管理）
 
 ## 构建
 
@@ -30,7 +30,7 @@ A lightweight macOS menu bar app for quickly jotting down notes and saving them 
 
 ```bash
 xcodebuild -project NoteMenu.xcodeproj -scheme NoteMenu -configuration Debug -derivedDataPath build build
-open build/Build/Products/Debug/NoteMenu.app
+open build/Build/Products/Debug/NotesMate.app
 ```
 
 或直接用 Xcode 打开 `NoteMenu.xcodeproj` 运行。
@@ -39,7 +39,7 @@ open build/Build/Products/Debug/NoteMenu.app
 
 - SwiftUI + AppKit：`NSStatusItem` + `NSPanel` 浮窗承载 SwiftUI 界面；编辑器使用语义文档模型、统一编辑命令和原生 `NSTextView` / TextKit 投影
 - 写入备忘录：通过 AppleScript（`make new note` / `make new attachment`）实现，正文直接从模型导出为规范白名单 HTML，图片按顺序追加为附件；保存目标默认为默认文件夹，可经 AppleScript 枚举账户目录后改存指定文件夹，选择持久化在 UserDefaults
-- 草稿：应用支持目录下的 `NoteMenu/draft-v1.json` 原子保存模型、输入格式和图片；旧 `draft.rtfd` 迁移源会保留，清空时移为备份以免旧稿恢复
+- 草稿：应用支持目录下的 `NotesMate/draft-v1.json` 原子保存模型、输入格式和图片；旧 `draft.rtfd` 迁移源会保留，清空时移为备份以免旧稿恢复
 - 沙盒：开启 App Sandbox，通过 `com.apple.security.temporary-exception.apple-events` 获得控制备忘录的权限
 - 应用图标：使用 `NoteMenu/Resources/AppIcon.icon`，可直接用 Xcode 附带的 Icon Composer 打开。黄色背景由 Composer 定义，`Assets/note.svg` 是文字与笔形镂空的便笺矢量层；外轮廓由系统生成，不在素材里预先添加圆角底板或透明边距。
 - 图标兼容：使用 Xcode 26 构建，macOS 26 使用分层图标，旧版 macOS 使用 Xcode 自动生成的静态回退图标（包含 `AppIcon.icns`），最低系统要求保持 macOS 13.0。原 PNG 和 `AppIcon.appiconset` 保留作设计参考；存在同名 `.icon` 时，Xcode 优先使用 Composer 工程，并自行生成回退图，而不是直接采用原 PNG。旧系统的实际显示效果仍需在对应系统上验证。
@@ -60,3 +60,9 @@ open build/NoteMenuEditorHarness.app
 ## License
 
 MIT
+
+## 多语言
+
+界面支持简体中文、繁体中文、英文、日语、韩语、德语、法语、西班牙语、葡萄牙语、意大利语、菲律宾语、印度尼西亚语、马来西亚语、泰语和越南语。按系统首选语言匹配；不支持的语言回退英语。详见 [本地化说明](docs/Localization.md)。
+
+应用名称为 **NotesMate**，Bundle ID 为 `com.badpxx.notesmate`。Xcode 项目和 Scheme 仍名为 `NoteMenu`。首次以新标识运行时使用新的草稿和偏好设置，并由系统重新管理自动化授权；不迁移旧版测试数据。

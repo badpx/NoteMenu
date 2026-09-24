@@ -22,5 +22,6 @@ PLIST
 mkdir -p "$bundle/Contents/Resources"
 xcrun actool NoteMenu/Resources/Assets.xcassets --compile "$bundle/Contents/Resources" \
     --platform macosx --minimum-deployment-target 13.0 --target-device mac
+cp -R NoteMenu/Localization/*.lproj "$bundle/Contents/Resources/"
 codesign --force --sign - "$bundle"
 echo "$bundle"

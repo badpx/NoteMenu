@@ -24,10 +24,10 @@ enum NotesSaver {
 
     static func runScript(_ source: String) throws -> String {
         guard let language = OSALanguage(forName: "AppleScript"), language.isThreadSafe else {
-            throw ScriptError(number: 0, message: "系统 AppleScript 引擎不支持后台执行")
+            throw ScriptError(number: 0, message: EditorLanguage.text("The system AppleScript engine cannot run in the background."))
         }
         // Own the language instance for this invocation: never share a script component
-        // across threads. Apple events originate from NoteMenu, using its sandbox/TCC
+        // across threads. Apple events originate from NotesMate, using its sandbox/TCC
         // permissions, rather than from an external osascript process.
         let instance = OSALanguageInstance(language: language)
         let script = OSAScript(source: source, from: nil, languageInstance: instance, using: [])
@@ -35,7 +35,7 @@ enum NotesSaver {
         let result = script.executeAndReturnError(&error)
         if let error {
             throw ScriptError(number: error[OSAScriptErrorNumber] as? Int ?? 0,
-                              message: error[OSAScriptErrorMessage] as? String ?? "备忘录保存失败")
+                              message: error[OSAScriptErrorMessage] as? String ?? EditorLanguage.text("Unable to save to Notes."))
         }
         return result?.stringValue ?? ""
     }
@@ -51,7 +51,7 @@ enum NotesSaver {
                      verificationAttempts: Int = 20,
                      onInvalidFolder: () -> Void = { FolderCatalog.target = nil }) -> SaveResult {
         let fm = FileManager.default
-        let directory = temporaryRoot.appendingPathComponent("NoteMenu-\(UUID().uuidString)", isDirectory: true)
+        let directory = temporaryRoot.appendingPathComponent("NotesMate-\(UUID().uuidString)", isDirectory: true)
         var preserveFiles = false
         var noteID: String?
         defer { if !preserveFiles { try? fm.removeItem(at: directory) } }
@@ -60,7 +60,7 @@ enum NotesSaver {
             var paths: [String] = []
             if !content.images.isEmpty { try fm.createDirectory(at: directory, withIntermediateDirectories: true) }
             for (i, image) in content.images.enumerated() {
-                guard let data = pngData(for: image) else { throw ScriptError(number: 0, message: "无法编码图片附件") }
+                guard let data = pngData(for: image) else { throw ScriptError(number: 0, message: EditorLanguage.text("Unable to encode the image attachment.")) }
                 let file = directory.appendingPathComponent("image-\(i).png")
                 try data.write(to: file, options: .atomic)
                 payloads.append(data)
@@ -79,7 +79,7 @@ enum NotesSaver {
                 onInvalidFolder()
                 id = try execute(makeScript(bodyHTML: html.initial))
             }
-            guard !id.isEmpty else { throw ScriptError(number: 0, message: "备忘录未返回笔记标识，请检查是否已创建笔记") }
+            guard !id.isEmpty else { throw ScriptError(number: 0, message: EditorLanguage.text("Notes did not return a note ID. Check whether the note was created.")) }
             noteID = id
             if !paths.isEmpty {
                 _ = try execute(attachmentScript(noteID: id, html: html.final, paths: paths))
@@ -96,7 +96,7 @@ enum NotesSaver {
                     if verified || Date() >= deadline { break }
                     if attempt + 1 < verificationAttempts { Thread.sleep(forTimeInterval: 0.1) }
                 }
-                guard verified else { throw ScriptError(number: 0, message: "图片附件完整性校验失败，草稿已保留") }
+                guard verified else { throw ScriptError(number: 0, message: EditorLanguage.text("Image verification failed. Your draft has been kept.")) }
             }
             preserveFiles = false
             return .success
@@ -107,10 +107,10 @@ enum NotesSaver {
                     _ = try execute("with timeout of 10 seconds\ntell application \"Notes\" to delete note id \(quote(id))\nend timeout")
                     preserveFiles = false
                 } catch {
-                    detail += "；未能移除未完成笔记，请先检查备忘录，避免重试产生重复笔记"
+                    detail += EditorLanguage.text("\nCould not remove the incomplete note. Check Notes before retrying to avoid duplicates.")
                 }
             }
-            if preserveFiles { detail += "；图片临时文件保留在 \(directory.path)" }
+            if preserveFiles { detail += EditorLanguage.format("\nTemporary image files are kept at {0}", directory.path) }
             if let error = error as? ScriptError, error.number == -1743 { return .unauthorized(detail) }
             return .failed(detail)
         }
@@ -122,14 +122,14 @@ enum NotesSaver {
         for (i, path) in imagePaths.enumerated() {
             let marker = HTMLExporter.imagePlaceholder(i)
             guard final.components(separatedBy: marker).count == 2 else {
-                throw ScriptError(number: 0, message: "图片与正文位置不一致，未保存")
+                throw ScriptError(number: 0, message: EditorLanguage.text("Image positions do not match the text. The note was not saved."))
             }
             initial = initial.replacingOccurrences(of: marker, with: "")
             let url = HTMLExporter.escape(URL(fileURLWithPath: path).absoluteString).replacingOccurrences(of: "\"", with: "&quot;")
             final = final.replacingOccurrences(of: marker, with: "<img src=\"\(url)\">")
         }
-        guard !final.contains("<!--NoteMenuImage:") else {
-            throw ScriptError(number: 0, message: "图片数据缺失，未保存")
+        guard !final.contains("<!--NotesMateImage:") else {
+            throw ScriptError(number: 0, message: EditorLanguage.text("Image data is missing. The note was not saved."))
         }
         return (initial, final)
     }
@@ -165,7 +165,7 @@ enum NotesSaver {
 
     static func verificationScript(noteID: String, exports: [URL]) -> String {
         var lines = ["with timeout of 5 seconds", "tell application \"Notes\"", "set n to note id \(quote(noteID))",
-                     "if (count of attachments of n) is not \(exports.count) then error \"图片数量不一致\""]
+                     "if (count of attachments of n) is not \(exports.count) then error \"Image count mismatch\""]
         for (i, file) in exports.enumerated() {
             lines.append("save attachment \(i + 1) of n in POSIX file \(quote(file.path))")
         }

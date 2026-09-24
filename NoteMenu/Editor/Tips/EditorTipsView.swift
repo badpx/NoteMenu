@@ -51,12 +51,9 @@ struct EditorTipOverlay: View {
                             .frame(width: 12, alignment: .leading)
                             .padding(.trailing, 4)
                             .accessibilityHidden(true)
-                        Text(tip.message)
-                            .font(.system(size: 12))
-                            .lineSpacing(3)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        TipMessageView(tip: tip)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: rect.height - 16)
                         Color.clear.frame(width: EditorTipContext.dismissSize, height: EditorTipContext.dismissSize)
                     }
                     .foregroundStyle(Color(nsColor: EditorAppearance.tipText))
@@ -71,7 +68,7 @@ struct EditorTipOverlay: View {
                             .contentShape(Circle())
                     }
                     .buttonStyle(TipDismissStyle())
-                    .accessibilityLabel(EditorLanguage.text("关闭此提示", "Dismiss Tip"))
+                    .accessibilityLabel(EditorLanguage.text("Dismiss Tip"))
                     .padding(.trailing, EditorTipContext.horizontalPadding)
                 }
                 .frame(width: rect.width, height: rect.height)
@@ -108,28 +105,52 @@ struct SaveShortcutTip: View {
             if tips.visible == .save {
                 HStack(spacing: 6) {
                     Text(EditorTip.save.message)
-                    HStack(spacing: 3) {
-                        key("⌘")
-                        key("↩")
-                    }.accessibilityHidden(true)
+                    Image(nsImage: TipKeycap.image(["⌘", "↩"]))
+                        .accessibilityHidden(true)
                 }
                 .font(.system(size: 12))
                 .foregroundStyle(Color(nsColor: EditorAppearance.tipText))
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .modifier(TipSurface())
                 .fixedSize()
-                .accessibilityLabel(EditorLanguage.text("存至备忘录，Command 加 Return", "Save to Notes, Command Return"))
+                .accessibilityLabel(EditorLanguage.text("Save to Notes, Command Return"))
                 .transition(.opacity)
             }
         }
         .allowsHitTesting(false)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: tips.visible)
     }
-    private func key(_ label: String) -> some View {
-        Text(verbatim: label).font(.system(size: 11, weight: .medium))
-            .frame(width: 18, height: 18)
-            .background(Color(nsColor: EditorAppearance.tipText).opacity(0.06), in: RoundedRectangle(cornerRadius: 3))
-            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color(nsColor: EditorAppearance.tipText).opacity(0.18), lineWidth: 0.5))
+}
+
+/// Draw and measure the same attributed string so inline keycaps wrap with the
+/// localized sentence, without affecting the editor's layout or mouse handling.
+private struct TipMessageView: NSViewRepresentable {
+    let tip: EditorTip
+    func makeNSView(context: Context) -> MessageView { MessageView() }
+    func updateNSView(_ view: MessageView, context: Context) {
+        view.tip = tip
+        view.setAccessibilityElement(true)
+        view.setAccessibilityRole(.staticText)
+        view.setAccessibilityLabel(tip.message)
+        view.needsDisplay = true
+    }
+    final class MessageView: NSView {
+        var tip: EditorTip = .save
+        override var isFlipped: Bool { true }
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func viewDidChangeEffectiveAppearance() {
+            super.viewDidChangeEffectiveAppearance()
+            needsDisplay = true
+        }
+        override func draw(_ dirtyRect: NSRect) {
+            effectiveAppearance.performAsCurrentDrawingAppearance {
+                let text = EditorTipText.attributed(tip)
+                let height = EditorTipText.height(text, width: bounds.width)
+                text.draw(with: NSRect(x: 0, y: max(0, (bounds.height - height) / 2),
+                                       width: bounds.width, height: height),
+                          options: [.usesLineFragmentOrigin, .usesFontLeading])
+            }
+        }
     }
 }
 

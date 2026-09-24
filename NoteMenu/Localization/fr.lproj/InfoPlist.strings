@@ -1,0 +1,3 @@
+"CFBundleDisplayName" = "NotesMate";
+"CFBundleName" = "NotesMate";
+"NSAppleEventsUsageDescription" = "NotesMate a besoin de votre autorisation pour contrôler Notes d’Apple afin d’enregistrer vos notes.";

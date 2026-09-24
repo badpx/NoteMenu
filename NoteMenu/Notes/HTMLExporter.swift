@@ -61,7 +61,7 @@ enum HTMLExporter {
         return Result(bodyHTML: html, assetIDs: document.assetOrder)
     }
 
-    static func imagePlaceholder(_ index: Int) -> String { "<!--NoteMenuImage:\(index)-->" }
+    static func imagePlaceholder(_ index: Int) -> String { "<!--NotesMateImage:\(index)-->" }
 
     static func renderRuns(_ runs: [InlineRun], image: (UUID) -> String = { _ in "" }) -> String {
         runs.map { run in

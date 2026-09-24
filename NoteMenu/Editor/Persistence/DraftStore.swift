@@ -29,14 +29,14 @@ final class DraftStore {
     let directory: URL
     var url: URL { directory.appendingPathComponent("draft-v1.json") }
     var legacyURL: URL { directory.appendingPathComponent("draft.rtfd") }
-    private let queue = DispatchQueue(label: "NoteMenu.DraftStore")
+    private let queue = DispatchQueue(label: "NotesMate.DraftStore")
     private let lock = NSLock()
     private var generation: UInt64 = 0
     private(set) var lastError: Error?
     private(set) var restoredSession: EditorSession?
     private var damagedSource = false
 
-    init(directory: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("NoteMenu")) {
+    init(directory: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("NotesMate")) {
         self.directory = directory
     }
 

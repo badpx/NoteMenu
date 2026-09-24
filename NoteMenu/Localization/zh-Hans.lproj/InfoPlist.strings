@@ -1,0 +1,3 @@
+"CFBundleDisplayName" = "NotesMate";
+"CFBundleName" = "NotesMate";
+"NSAppleEventsUsageDescription" = "NotesMate 需要获得控制“备忘录”的权限，才能保存你记录的内容。";

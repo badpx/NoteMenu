@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		AA0000000000000000000004 /* NoteMenu.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NoteMenu.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000004 /* NotesMate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NotesMate.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -54,7 +54,7 @@
 		AA0000000000000000000003 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				AA0000000000000000000004 /* NoteMenu.app */,
+				AA0000000000000000000004 /* NotesMate.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -80,8 +80,8 @@
 			name = NoteMenu;
 			packageProductDependencies = (
 			);
-			productName = NoteMenu;
-			productReference = AA0000000000000000000004 /* NoteMenu.app */;
+			productName = NotesMate;
+			productReference = AA0000000000000000000004 /* NotesMate.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -105,6 +105,20 @@
 			knownRegions = (
 				en,
 				Base,
+				"zh-Hans",
+				"zh-Hant",
+				"ja",
+				"ko",
+				"de",
+				"fr",
+				"es",
+				"pt",
+				"it",
+				"fil",
+				"id",
+				"ms",
+				"th",
+				"vi",
 			);
 			mainGroup = AA0000000000000000000002;
 			minimizedProjectReferenceProxies = 1;
@@ -229,8 +243,8 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.badpx.notemenu;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.badpxx.notesmate;
+				PRODUCT_NAME = NotesMate;
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
@@ -251,8 +265,8 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.badpx.notemenu;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.badpxx.notesmate;
+				PRODUCT_NAME = NotesMate;
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;

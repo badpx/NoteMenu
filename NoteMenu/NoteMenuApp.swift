@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct NoteMenuApp: App {
+struct NotesMateApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {

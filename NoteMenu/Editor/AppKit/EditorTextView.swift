@@ -90,7 +90,7 @@ final class EditorTextView: NSTextView {
 
     override func insertNewline(_ sender: Any?) {
         guard !hasMarkedText(), let bridge, !bridge.isComposing else { super.insertNewline(sender); return }
-        bridge.execute(.newline, name: EditorLanguage.text("换行", "New Line"))
+        bridge.execute(.newline, name: EditorLanguage.text("New Line"))
     }
 
     override func moveDown(_ sender: Any?) {
@@ -116,7 +116,7 @@ final class EditorTextView: NSTextView {
                 super.moveDown(sender); return
             }
         }
-        bridge.execute(.exitCodeAtDocumentEnd, name: EditorLanguage.text("退出代码块", "Exit Code Block"))
+        bridge.execute(.exitCodeAtDocumentEnd, name: EditorLanguage.text("Exit Code Block"))
     }
 
     override func insertTab(_ sender: Any?) {
@@ -127,7 +127,7 @@ final class EditorTextView: NSTextView {
             let kind = bridge.document.paragraphs[$0].kind
             return kind.list != nil || kind.isCode
         }) {
-            bridge.execute(.indent(1), name: EditorLanguage.text("增加缩进", "Indent"))
+            bridge.execute(.indent(1), name: EditorLanguage.text("Indent"))
         } else {
             insertText("\t", replacementRange: selectedRange())
         }
@@ -136,14 +136,14 @@ final class EditorTextView: NSTextView {
     override func insertBacktab(_ sender: Any?) {
         guard isEditable else { return }
         guard !hasMarkedText(), let bridge, !bridge.isComposing else { super.insertBacktab(sender); return }
-        bridge.execute(.indent(-1), name: EditorLanguage.text("减少层级", "Outdent"))
+        bridge.execute(.indent(-1), name: EditorLanguage.text("Outdent"))
     }
 
     override func deleteBackward(_ sender: Any?) {
         guard let bridge, !bridge.isComposing else { super.deleteBackward(sender); return }
         var candidate = bridge.state
         if EditorReducer.apply(.backspaceAtStart, to: &candidate) {
-            bridge.execute(.backspaceAtStart, name: EditorLanguage.text("退出段落格式", "Remove Paragraph Style"))
+            bridge.execute(.backspaceAtStart, name: EditorLanguage.text("Remove Paragraph Style"))
         } else { bridge.runNative { super.deleteBackward(sender) } }
     }
 
@@ -194,9 +194,9 @@ final class EditorTextView: NSTextView {
         if flags == .command && [UInt16(36), 76].contains(event.keyCode) { bridge.requestSave(); return true }
         if flags == .command {
             switch key {
-            case "b": bridge.execute(.toggle(.bold), name: EditorLanguage.text("粗体", "Bold")); return true
-            case "i": bridge.execute(.toggle(.italic), name: EditorLanguage.text("斜体", "Italic")); return true
-            case "u": bridge.execute(.toggle(.underline), name: EditorLanguage.text("下划线", "Underline")); return true
+            case "b": bridge.execute(.toggle(.bold), name: EditorLanguage.text("Bold")); return true
+            case "i": bridge.execute(.toggle(.italic), name: EditorLanguage.text("Italic")); return true
+            case "u": bridge.execute(.toggle(.underline), name: EditorLanguage.text("Underline")); return true
             case "z": undo(nil); return true
             case "a": selectAll(nil); return true
             case "c": copy(nil); return true
@@ -206,7 +206,7 @@ final class EditorTextView: NSTextView {
             }
         }
         if flags == [.command, .shift] {
-            if key == "x" { bridge.execute(.toggle(.strike), name: EditorLanguage.text("删除线", "Strikethrough")); return true }
+            if key == "x" { bridge.execute(.toggle(.strike), name: EditorLanguage.text("Strikethrough")); return true }
             if key == "z" { redo(nil); return true }
         }
         return super.performKeyEquivalent(with: event)
@@ -318,7 +318,7 @@ final class EditorTextView: NSTextView {
     }
 
     override func changeColor(_ sender: Any?) {}
-    @objc func toggleUnderline(_ sender: Any?) { bridge?.execute(.toggle(.underline), name: EditorLanguage.text("下划线", "Underline")) }
+    @objc func toggleUnderline(_ sender: Any?) { bridge?.execute(.toggle(.underline), name: EditorLanguage.text("Underline")) }
 
     /// The scroll view may receive its final size after a restored draft was projected.
     /// Include the glyphless final line when calculating its document height.
@@ -361,7 +361,7 @@ final class EditorTextView: NSTextView {
         if bridge.document.isPristine && !bridge.isComposing {
             let origin = textContainerOrigin
             let padding = textContainer?.lineFragmentPadding ?? 0
-            (EditorLanguage.text("现在的想法是…", "What’s on your mind?") as NSString).draw(at: NSPoint(x: origin.x + padding, y: origin.y), withAttributes: [
+            (EditorLanguage.text("What’s on your mind?") as NSString).draw(at: NSPoint(x: origin.x + padding, y: origin.y), withAttributes: [
                 .font: TextKitRenderer.font(for: .plain, block: .body), .foregroundColor: EditorAppearance.placeholder,
             ])
         }

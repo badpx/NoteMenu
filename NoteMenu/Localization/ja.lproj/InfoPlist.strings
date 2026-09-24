@@ -1,0 +1,3 @@
+"CFBundleDisplayName" = "NotesMate";
+"CFBundleName" = "NotesMate";
+"NSAppleEventsUsageDescription" = "メモを保存するには、NotesMate に Apple のメモを操作する権限が必要です。";

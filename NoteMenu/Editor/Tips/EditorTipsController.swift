@@ -21,11 +21,11 @@ enum EditorTip: Equatable, Hashable {
     var icon: String { isFeature ? "lightbulb" : "info.circle" }
     var message: String {
         switch self {
-        case .heading: return EditorLanguage.text("行首输入 # 再按空格，可创建标题。", "Start a line with # and a space to create a heading.")
-        case .indent: return EditorLanguage.text("列表中按 Tab 可增加缩进。", "Press Tab to indent a list item.")
-        case .codeExit: return EditorLanguage.text("在代码块最后一行按 ↓，可回到正文。", "Press ↓ on the last line of a code block to return to body text.")
-        case .selectAll: return EditorLanguage.text("再次按 ⌘A 可扩大选区，直到选中整篇笔记。", "Press ⌘A again to expand the selection to the whole note.")
-        case .save: return EditorLanguage.text("存至备忘录", "Save to Notes")
+        case .heading: return EditorLanguage.text("Start a line with # and a space to create a heading.")
+        case .indent: return EditorLanguage.text("Press Tab to indent and ⇧+Tab to outdent.")
+        case .codeExit: return EditorLanguage.text("Press ↓ on the last line of a code block to return to body text.")
+        case .selectAll: return EditorLanguage.text("Press ⌘+A repeatedly to select the entire note.")
+        case .save: return EditorLanguage.text("Save to Notes")
         case .information(_, let message): return message
         }
     }
@@ -208,10 +208,7 @@ enum EditorTipContext {
         let width = min(300, size.width - 32)
         guard width >= 180 else { return nil }
         let textWidth = width - 2 * horizontalPadding - 28 - dismissSize // icon, 10pt/6pt gaps and dismiss target
-        let text = (tip.message as NSString).boundingRect(with: NSSize(width: textWidth, height: 1000),
-            options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: NSFont.systemFont(ofSize: 12)])
-        guard text.height <= 34 else { return nil }
-        let height = max(24, ceil(text.height) + (text.height > 18 ? 3 : 0)) + 16
+        let height = max(24, EditorTipText.height(EditorTipText.attributed(tip), width: textWidth)) + 16
         guard size.height >= height + 20 else { return nil }
         return CGRect(x: (size.width - width) / 2, y: 8, width: width, height: height)
     }

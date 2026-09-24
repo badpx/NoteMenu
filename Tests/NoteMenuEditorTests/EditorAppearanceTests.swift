@@ -3,16 +3,6 @@ import XCTest
 @testable import NoteMenuEditor
 
 final class EditorAppearanceTests: XCTestCase {
-    func testLanguageSelectionAndEnglishFallback() {
-        for language in ["zh-Hans", "zh-Hant", "zh-CN"] {
-            XCTAssertEqual(EditorLanguage.text("正文", "Body", languages: [language]), "正文")
-        }
-        for language in ["en", "en-GB", "fr"] {
-            XCTAssertEqual(EditorLanguage.text("正文", "Body", languages: [language]), "Body")
-        }
-        XCTAssertEqual(EditorLanguage.text("正文", "Body", languages: []), "Body")
-    }
-
     func testTextContrastInBothAppearances() {
         func luminance(_ color: NSColor, in appearance: NSAppearance) -> CGFloat {
             var rgb: NSColor!

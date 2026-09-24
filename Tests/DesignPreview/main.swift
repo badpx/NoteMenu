@@ -7,6 +7,7 @@ let language = args.count > 1 ? args[1] : "en"
 let dark = args.count > 2 && args[2] == "dark"
 let width = args.count > 3 ? Double(args[3])! : 380
 UserDefaults.standard.setVolatileDomain(["AppleLanguages": [language]], forName: UserDefaults.argumentDomain)
+precondition(EditorLanguage.text("Body") == EditorLanguage.text("Body", languages: [language]), "Preview must use the requested language")
 let app = NSApplication.shared
 let verifyTips = args.contains("--verify-tips")
 app.setActivationPolicy(.prohibited)
@@ -18,7 +19,7 @@ let sampleFolder = NotesFolder(id: "preview", name: language.hasPrefix("zh") ? "
 var windows: [NSWindow] = []
 var models: [NoteEditorModel] = []
 let tipsMode = args.contains("--tips")
-for state in tipsMode ? ["code-tip", "save-tip", "select-all-tip", "information-tip"] : ["empty", "editing"] {
+for state in tipsMode ? ["heading-tip", "indent-tip", "code-tip", "save-tip", "select-all-tip", "information-tip"] : ["empty", "editing"] {
     let editing = state != "empty"
     let suite = "NoteMenu.preview.\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: suite)!
@@ -26,7 +27,7 @@ for state in tipsMode ? ["code-tip", "save-tip", "select-all-tip", "information-
     let tips = EditorTipsController(history: EditorTipHistory(defaults: defaults), timing: .init(hover: 0.01))
     let model = NoteEditorModel(drafts: DraftStore(directory: output.appendingPathComponent(UUID().uuidString)), restore: false, tips: tips)
     if editing {
-        func copy(_ zh: String, _ en: String) -> String { EditorLanguage.text(zh, en) }
+        func copy(_ zh: String, _ en: String) -> String { language.hasPrefix("zh") ? zh : en }
         model.bridge.load(EditorDocument(paragraphs: [
             Paragraph(kind: .heading(1), runs: [InlineRun(text: copy("让想法及时落地", "Give ideas a place"))]),
             Paragraph(runs: [InlineRun(text: copy("把零散的灵感，留给下一次思考。", "Save a thought. Come back to it later."))]),
@@ -37,7 +38,7 @@ for state in tipsMode ? ["code-tip", "save-tip", "select-all-tip", "information-
     }
     if state == "code-tip" {
         model.bridge.load(EditorDocument(paragraphs: [
-            Paragraph(kind: .heading(1), runs: [InlineRun(text: EditorLanguage.text("一段小代码", "A little code"))]),
+            Paragraph(kind: .heading(1), runs: [InlineRun(text: (language.hasPrefix("zh") ? "一段小代码" : "A little code"))]),
             Paragraph(kind: .codeLine, runs: [InlineRun(text: "func greet() {")]),
             Paragraph(kind: .codeLine, runs: [InlineRun(text: "    print(\"Hello\")")]),
             Paragraph(kind: .codeLine, runs: [InlineRun(text: "}")])
@@ -66,7 +67,7 @@ for state in tipsMode ? ["code-tip", "save-tip", "select-all-tip", "information-
         tips.canPresent = { tip in verifyTips ? EditorTipContext.geometryAllows(tip, in: model.bridge) : true }
         tips.endSession()
         defaults.removePersistentDomain(forName: suite)
-        tips.learned(.indent) // Keep the preview focused on the requested state.
+        if state != "indent-tip" { tips.learned(.indent) } // Keep the preview focused on the requested state.
         tips.activate()
         if state == "code-tip" {
             // Opening on an existing code line no longer synthesizes entry.
@@ -75,6 +76,8 @@ for state in tipsMode ? ["code-tip", "save-tip", "select-all-tip", "information-
             model.bridge.select(NSRange(location: model.bridge.document.length, length: 0))
             beforeState = model.bridge.state
         }
+        if state == "heading-tip" { tips.showFeature(.heading) }
+        if state == "indent-tip" { tips.showFeature(.indent) }
         if state == "save-tip" { tips.saveHover(true) }
         if state == "select-all-tip" {
             let key = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
@@ -83,11 +86,11 @@ for state in tipsMode ? ["code-tip", "save-tip", "select-all-tip", "information-
             beforeState = model.bridge.state
         }
         if state == "information-tip" {
-            tips.showInformation(id: "preview", message: EditorLanguage.text("你好，欢迎使用NoteMenu，\n你可随时记录想法并保存至系统备忘录。", "Welcome to NoteMenu.\nCapture ideas and save to Apple Notes."))
+            tips.showInformation(id: "preview", message: EditorLanguage.format("Hello, welcome to {0}.\nCapture ideas and save to Apple Notes.", AppIdentity.productName))
         }
         RunLoop.current.run(until: Date().addingTimeInterval(0.18))
         hosting.layoutSubtreeIfNeeded()
-        let expected: EditorTip = state == "save-tip" ? .save : state == "select-all-tip" ? .selectAll : .codeExit
+        let expected: EditorTip = state == "heading-tip" ? .heading : state == "indent-tip" ? .indent : state == "save-tip" ? .save : state == "select-all-tip" ? .selectAll : .codeExit
         precondition(state == "information-tip" ? tips.visible?.id == "info.preview" : tips.visible == expected)
         precondition(model.bridge.state == beforeState, "Tips must not change the note or selection")
         precondition(model.bridge.textView!.frame == textFrame, "Tips must not reflow the editor")

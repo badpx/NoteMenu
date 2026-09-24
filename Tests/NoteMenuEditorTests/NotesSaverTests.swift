@@ -34,14 +34,14 @@ final class NotesSaverTests: XCTestCase {
     }
     func testExporterPreservesRepeatedImageOccurrencesAndEscapesUserText() throws {
         let id = UUID()
-        let doc = EditorDocument(paragraphs: [Paragraph(runs: [InlineRun(text: "A"), .image(id), InlineRun(text: "B"), .image(id), InlineRun(text: "C<!--NoteMenuImage:0-->")])])
+        let doc = EditorDocument(paragraphs: [Paragraph(runs: [InlineRun(text: "A"), .image(id), InlineRun(text: "B"), .image(id), InlineRun(text: "C<!--NotesMateImage:0-->")])])
         let export = HTMLExporter.export(doc)
         XCTAssertEqual(export.assetIDs, [id, id])
         let html = try NotesSaver.resolveHTML(export.bodyHTML, imagePaths: ["/tmp/a & \"1.png", "/tmp/b.png"])
         XCTAssertTrue(html.final.contains("A<img"))
         XCTAssertTrue(html.final.contains(">B<img"))
-        XCTAssertTrue(html.final.contains(">C&lt;!--NoteMenuImage:0--&gt;"))
-        XCTAssertFalse(html.final.contains("<!--NoteMenuImage:"))
+        XCTAssertTrue(html.final.contains(">C&lt;!--NotesMateImage:0--&gt;"))
+        XCTAssertFalse(html.final.contains("<!--NotesMateImage:"))
         XCTAssertTrue(html.final.contains("%22"))
         XCTAssertThrowsError(try NotesSaver.resolveHTML(export.bodyHTML, imagePaths: ["/tmp/a.png"]))
     }
@@ -62,7 +62,7 @@ final class NotesSaverTests: XCTestCase {
         }, temporaryRoot: root)
         XCTAssertEqual(result, .success)
         XCTAssertEqual(calls.count, 3)
-        XCTAssertFalse(calls[0].contains("<!--NoteMenuImage:"))
+        XCTAssertFalse(calls[0].contains("<!--NotesMateImage:"))
         XCTAssertTrue(calls[1].range(of: "make new attachment")!.lowerBound < calls[1].range(of: "set body")!.lowerBound)
         XCTAssertFalse(calls.joined().contains("activate"))
         XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: root.path).isEmpty)
@@ -90,7 +90,7 @@ final class NotesSaverTests: XCTestCase {
             throw NotesSaver.ScriptError(number: -10000, message: "injected failure")
         }, temporaryRoot: root, verificationAttempts: 1)
         guard case .failed(let message) = result else { return XCTFail("Must fail") }
-        XCTAssertTrue(message.contains("避免重试产生重复笔记"))
+        XCTAssertTrue(message.contains(EditorLanguage.text("\nCould not remove the incomplete note. Check Notes before retrying to avoid duplicates.")))
         let dir = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)[0]
         XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("image-0.png").path))
     }
@@ -202,6 +202,6 @@ final class NotesSaverTests: XCTestCase {
         XCTAssertEqual(FolderCatalog.target, folder)
         FolderCatalog.target = nil
         XCTAssertNil(FolderCatalog.target)
-        XCTAssertNil(suite.string(forKey: "NoteMenu.targetFolder.id"))
+        XCTAssertNil(suite.string(forKey: "NotesMate.targetFolder.id"))
     }
 }

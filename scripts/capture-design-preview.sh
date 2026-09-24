@@ -11,14 +11,15 @@ xcrun swiftc -module-cache-path "${TMPDIR:-/tmp}/notemenu-module-cache" -swift-v
 cat > "$preview_bundle/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0"><dict>
-<key>CFBundleIdentifier</key><string>com.badpx.notemenu.design-preview</string>
+<key>CFBundleIdentifier</key><string>com.badpxx.notesmate.design-preview</string>
 <key>CFBundleExecutable</key><string>NoteMenuDesignPreview</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
-cp build/debug-icon-composer/Build/Products/Debug/NoteMenu.app/Contents/Resources/{Assets.car,AppIcon.icns} "$preview_bundle/Contents/Resources/"
+cp build/debug-icon-composer/Build/Products/Debug/NotesMate.app/Contents/Resources/{Assets.car,AppIcon.icns} "$preview_bundle/Contents/Resources/"
+cp -R NoteMenu/Localization/*.lproj "$preview_bundle/Contents/Resources/"
 if [ "$#" -gt 0 ]; then
     "$preview_bundle/Contents/MacOS/NoteMenuDesignPreview" "$@"
     exit

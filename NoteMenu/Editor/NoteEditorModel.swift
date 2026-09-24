@@ -13,7 +13,7 @@ final class NoteEditorModel: ObservableObject {
     private var hasDraft = false
     private(set) var recoveryMessage: String?
     @Published private(set) var isSaving = false
-    private static let saveQueue = DispatchQueue(label: "NoteMenu.save", qos: .userInitiated)
+    private static let saveQueue = DispatchQueue(label: "NotesMate.save", qos: .userInitiated)
 
     init(drafts: DraftStore = DraftStore(), restore: Bool = true, tips: EditorTipsController = EditorTipsController()) {
         self.bridge = AppKitInputBridge()
@@ -30,7 +30,7 @@ final class NoteEditorModel: ObservableObject {
             }
             catch {
                 hasDraft = true // A damaged existing draft is not a newly created draft.
-                recoveryMessage = EditorLanguage.text("草稿读取失败，原文件已保留：\(error.localizedDescription)", "Couldn’t restore the draft. The original file has been preserved: \(error.localizedDescription)")
+                recoveryMessage = EditorLanguage.format("Couldn’t restore the draft. The original file has been preserved: {0}", error.localizedDescription)
             }
         }
         tips.onSessionBegan = { [weak self] in
@@ -75,12 +75,12 @@ final class NoteEditorModel: ObservableObject {
         return !runs.isEmpty && runs.allSatisfy { $0.style.marks.contains(mark) }
     }
 
-    func toggleBold() { bridge.execute(.toggle(.bold), name: EditorLanguage.text("粗体", "Bold")) }
-    func toggleItalic() { bridge.execute(.toggle(.italic), name: EditorLanguage.text("斜体", "Italic")) }
-    func toggleUnderline() { bridge.execute(.toggle(.underline), name: EditorLanguage.text("下划线", "Underline")) }
-    func toggleStrike() { bridge.execute(.toggle(.strike), name: EditorLanguage.text("删除线", "Strikethrough")) }
-    func setBlock(_ kind: BlockKind) { bridge.execute(.block(kind), name: EditorLanguage.text("段落样式", "Paragraph Style")) }
-    func toggleList(_ kind: ListKind) { bridge.execute(.list(kind), name: EditorLanguage.text("列表", "List")) }
+    func toggleBold() { bridge.execute(.toggle(.bold), name: EditorLanguage.text("Bold")) }
+    func toggleItalic() { bridge.execute(.toggle(.italic), name: EditorLanguage.text("Italic")) }
+    func toggleUnderline() { bridge.execute(.toggle(.underline), name: EditorLanguage.text("Underline")) }
+    func toggleStrike() { bridge.execute(.toggle(.strike), name: EditorLanguage.text("Strikethrough")) }
+    func setBlock(_ kind: BlockKind) { bridge.execute(.block(kind), name: EditorLanguage.text("Paragraph Style")) }
+    func toggleList(_ kind: ListKind) { bridge.execute(.list(kind), name: EditorLanguage.text("List")) }
 
     func exportContent() -> NotesSaver.NoteContent? {
         guard !bridge.isComposing, !isEmpty else { return nil }

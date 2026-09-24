@@ -1,7 +1,7 @@
 import AppKit
 
 enum ClipboardCodec {
-    static let fragmentType = NSPasteboard.PasteboardType("com.notemenu.editor-fragment.v1")
+    static let fragmentType = NSPasteboard.PasteboardType("com.badpxx.notesmate.editor-fragment.v1")
     private struct Envelope: Codable { var version = 1; var document: EditorDocument }
 
     static func imageAsset(_ image: NSImage) -> ImageAsset? {

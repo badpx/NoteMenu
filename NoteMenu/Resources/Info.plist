@@ -5,13 +5,15 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleLocalizations</key>
-	<array><string>en</string><string>zh-Hans</string><string>zh-Hant</string></array>
+	<array><string>en</string><string>zh-Hans</string><string>zh-Hant</string><string>ja</string><string>ko</string><string>de</string><string>fr</string><string>es</string><string>pt</string><string>it</string><string>fil</string><string>id</string><string>ms</string><string>th</string><string>vi</string></array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleDisplayName</key>
+	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
@@ -29,6 +31,6 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>NoteMenu 需要获得控制「备忘录」的权限，才能将你记录的内容保存为新的备忘录。</string>
+	<string>NotesMate needs permission to control Apple Notes to save your notes.</string>
 </dict>
 </plist>

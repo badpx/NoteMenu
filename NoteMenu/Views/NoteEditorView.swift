@@ -74,7 +74,7 @@ struct NoteEditorView: View {
         .onAppear {
             if let message = model.recoveryMessage {
                 let alert = NSAlert()
-                alert.messageText = EditorLanguage.text("无法恢复草稿", "Unable to Restore Draft")
+                alert.messageText = EditorLanguage.text("Unable to Restore Draft")
                 alert.informativeText = message
                 alert.runModal()
             }
@@ -89,15 +89,15 @@ struct NoteEditorView: View {
                 .scaledToFit()
                 .frame(width: 20, height: 20)
                 .accessibilityHidden(true)
-            Text("NoteMenu")
+            Text(verbatim: AppIdentity.productName)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Color(nsColor: EditorAppearance.title))
             if model.isSaving {
                 ProgressView()
                     .controlSize(.small)
                     .frame(width: 14, height: 14)
-                    .accessibilityHint(EditorLanguage.text("正在保存至备忘录…", "Saving to Notes…"))
-                    .accessibilityLabel(EditorLanguage.text("正在保存至备忘录", "Saving to Notes"))
+                    .accessibilityHint(EditorLanguage.text("Saving to Notes…"))
+                    .accessibilityLabel(EditorLanguage.text("Saving to Notes"))
             }
             Spacer()
             HStack(spacing: 8) {
@@ -114,8 +114,8 @@ struct NoteEditorView: View {
                 }
                 .buttonStyle(.borderless)
                 .modifier(FormatControlHover())
-                .accessibilityLabel(isPinned ? EditorLanguage.text("取消置顶", "Unpin") : EditorLanguage.text("置顶", "Keep on Top"))
-                .accessibilityHint(EditorLanguage.text("点击窗口外时保持打开", "Keep the window open when clicking outside"))
+                .accessibilityLabel(isPinned ? EditorLanguage.text("Unpin") : EditorLanguage.text("Keep on Top"))
+                .accessibilityHint(EditorLanguage.text("Keep the window open when clicking outside"))
                 Button {
                     showSavedNotice = false
                     onClose()
@@ -127,8 +127,8 @@ struct NoteEditorView: View {
                 }
                 .buttonStyle(.borderless)
                 .modifier(FormatControlHover())
-                .accessibilityLabel(EditorLanguage.text("关闭输入窗口", "Close Editor"))
-                .accessibilityHint(EditorLanguage.text("草稿会保留", "Your draft will be kept"))
+                .accessibilityLabel(EditorLanguage.text("Close Editor"))
+                .accessibilityHint(EditorLanguage.text("Your draft will be kept"))
             }
         }
         .padding(.horizontal, EditorAppearance.horizontalInset)
@@ -136,10 +136,10 @@ struct NoteEditorView: View {
         .overlay {
             if showSavedNotice {
                 ViewThatFits(in: .horizontal) {
-                    Text(EditorLanguage.text("已保存至系统备忘录", "Saved to Apple Notes")).fixedSize()
-                    Text(EditorLanguage.text("已保存", "Saved")).fixedSize()
+                    Text(EditorLanguage.text("Saved to Apple Notes")).fixedSize()
+                    Text(EditorLanguage.text("Saved")).fixedSize()
                 }
-                    .accessibilityLabel(EditorLanguage.text("已保存至系统备忘录", "Saved to Apple Notes"))
+                    .accessibilityLabel(EditorLanguage.text("Saved to Apple Notes"))
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(Color(nsColor: .tertiaryLabelColor))
                     .lineLimit(1)
@@ -164,8 +164,8 @@ struct NoteEditorView: View {
                     .modifier(FormatControlHover())
             }
             .buttonStyle(.borderless)
-            .accessibilityLabel(EditorLanguage.text("段落样式", "Paragraph Style"))
-            .accessibilityHint(EditorLanguage.text("段落样式", "Paragraph Style"))
+            .accessibilityLabel(EditorLanguage.text("Paragraph Style"))
+            .accessibilityHint(EditorLanguage.text("Paragraph Style"))
             Button(action: showInlineMenu) {
                 Text(verbatim: "Aa")
                     .font(.system(size: 13, weight: .regular))
@@ -173,8 +173,8 @@ struct NoteEditorView: View {
                     .modifier(FormatControlHover())
             }
             .buttonStyle(.borderless)
-            .accessibilityLabel(EditorLanguage.text("字体样式", "Text Style"))
-            .accessibilityHint(EditorLanguage.text("字体样式", "Text Style"))
+            .accessibilityLabel(EditorLanguage.text("Text Style"))
+            .accessibilityHint(EditorLanguage.text("Text Style"))
 
             Button {
                 model.toggleList(.unordered)
@@ -184,7 +184,7 @@ struct NoteEditorView: View {
                     .modifier(FormatControlHover())
             }
             .buttonStyle(.borderless)
-            .accessibilityLabel(EditorLanguage.text("项目符号列表", "Bulleted List"))
+            .accessibilityLabel(EditorLanguage.text("Bulleted List"))
 
             Button {
                 model.toggleList(.ordered)
@@ -194,7 +194,7 @@ struct NoteEditorView: View {
                     .modifier(FormatControlHover())
             }
             .buttonStyle(.borderless)
-            .accessibilityLabel(EditorLanguage.text("编号列表", "Numbered List"))
+            .accessibilityLabel(EditorLanguage.text("Numbered List"))
 
             Button(action: chooseImages) {
                 Image(systemName: "photo")
@@ -202,8 +202,8 @@ struct NoteEditorView: View {
                     .modifier(FormatControlHover())
             }
             .buttonStyle(.borderless)
-            .accessibilityHint(EditorLanguage.text("添加图片", "Add Image"))
-            .accessibilityLabel(EditorLanguage.text("添加图片", "Add Image"))
+            .accessibilityHint(EditorLanguage.text("Add Image"))
+            .accessibilityLabel(EditorLanguage.text("Add Image"))
 
             Spacer(minLength: 4)
 
@@ -211,9 +211,9 @@ struct NoteEditorView: View {
                 .frame(width: 1 / displayScale, height: 20)
 
             FolderFolderButton(
-                name: targetFolder?.name ?? EditorLanguage.text("默认", "Default"),
+                name: targetFolder?.name ?? EditorLanguage.text("Default"),
                 isSelected: targetFolder != nil,
-                fullName: targetFolder.map { EditorLanguage.text("保存目录：\($0.name)", "Save folder: \($0.name)") } ?? EditorLanguage.text("保存目录：默认文件夹", "Save folder: Default")
+                fullName: targetFolder.map { EditorLanguage.format("Save folder: {0}", $0.name) } ?? EditorLanguage.text("Save folder: Default")
             ) {
                 showFolderMenu()
             }
@@ -242,10 +242,10 @@ struct NoteEditorView: View {
                 SaveShortcutTip(tips: model.tips).offset(y: -34)
             }
             .animation(.easeOut(duration: 0.12), value: isSaveHovered)
-            .accessibilityLabel(EditorLanguage.text("存至备忘录", "Save to Notes"))
+            .accessibilityLabel(EditorLanguage.text("Save to Notes"))
             .accessibilityHint(model.isEmpty
-                ? EditorLanguage.text("输入内容后可保存", "Add content to save a note")
-                : EditorLanguage.text("Command 加 Return", "Command Return"))
+                ? EditorLanguage.text("Add content to save a note")
+                : EditorLanguage.text("Command Return"))
         }
         .padding(.horizontal, EditorAppearance.horizontalInset)
         .frame(height: EditorAppearance.toolbarHeight)
@@ -258,9 +258,9 @@ struct NoteEditorView: View {
         let menu = NSMenu()
         var targets: [MenuActionTarget] = []
         for (title, kind) in [
-            (EditorLanguage.text("一级标题", "Heading"), BlockKind.heading(1)),
-            (EditorLanguage.text("正文", "Body"), .body),
-            (EditorLanguage.text("代码块", "Code Block"), .codeLine),
+            (EditorLanguage.text("Heading"), BlockKind.heading(1)),
+            (EditorLanguage.text("Body"), .body),
+            (EditorLanguage.text("Code Block"), .codeLine),
         ] {
             menu.addItem(Self.makeItem(title, state: model.selectedBlock == kind ? .on : .off, targets: &targets) {
                 model.setBlock(kind)
@@ -272,10 +272,10 @@ struct NoteEditorView: View {
     private func showInlineMenu() {
         let menu = NSMenu()
         var targets: [MenuActionTarget] = []
-        menu.addItem(Self.makeItem(EditorLanguage.text("加粗", "Bold"), state: model.isActive(.bold) ? .on : .off, targets: &targets) { model.toggleBold() })
-        menu.addItem(Self.makeItem(EditorLanguage.text("斜体", "Italic"), state: model.isActive(.italic) ? .on : .off, targets: &targets) { model.toggleItalic() })
-        menu.addItem(Self.makeItem(EditorLanguage.text("下划线", "Underline"), state: model.isActive(.underline) ? .on : .off, targets: &targets) { model.toggleUnderline() })
-        menu.addItem(Self.makeItem(EditorLanguage.text("删除线", "Strikethrough"), state: model.isActive(.strike) ? .on : .off, targets: &targets) { model.toggleStrike() })
+        menu.addItem(Self.makeItem(EditorLanguage.text("Bold"), state: model.isActive(.bold) ? .on : .off, targets: &targets) { model.toggleBold() })
+        menu.addItem(Self.makeItem(EditorLanguage.text("Italic"), state: model.isActive(.italic) ? .on : .off, targets: &targets) { model.toggleItalic() })
+        menu.addItem(Self.makeItem(EditorLanguage.text("Underline"), state: model.isActive(.underline) ? .on : .off, targets: &targets) { model.toggleUnderline() })
+        menu.addItem(Self.makeItem(EditorLanguage.text("Strikethrough"), state: model.isActive(.strike) ? .on : .off, targets: &targets) { model.toggleStrike() })
         popUp(menu, keepingAlive: targets)
     }
 
@@ -285,9 +285,9 @@ struct NoteEditorView: View {
         var targets: [MenuActionTarget] = []
         switch catalogState {
         case .loading:
-            menu.addItem(Self.makeItem(EditorLanguage.text("正在读取备忘录目录…", "Loading Notes folders…"), enabled: false, targets: &targets))
+            menu.addItem(Self.makeItem(EditorLanguage.text("Loading Notes folders…"), enabled: false, targets: &targets))
         case .failed(let message, let unauthorized):
-            menu.addItem(Self.makeItem(EditorLanguage.text("读取目录失败，点按重试", "Couldn’t Load Folders — Retry"), targets: &targets) {
+            menu.addItem(Self.makeItem(EditorLanguage.text("Couldn’t Load Folders — Retry"), targets: &targets) {
                 self.retryCatalog(message: message, unauthorized: unauthorized)
             })
         case .loaded:
@@ -301,7 +301,7 @@ struct NoteEditorView: View {
             }
         }
         menu.addItem(.separator())
-        menu.addItem(Self.makeItem(EditorLanguage.text("重新载入目录", "Reload Folders"), targets: &targets) { self.reloadCatalog() })
+        menu.addItem(Self.makeItem(EditorLanguage.text("Reload Folders"), targets: &targets) { self.reloadCatalog() })
         popUp(menu, keepingAlive: targets)
     }
 
@@ -336,7 +336,7 @@ struct NoteEditorView: View {
         let target = targetFolder.flatMap { isTrashedFolder($0) ? nil : $0 }
         let visible = folders.filter { !isTrashedFolder($0) }
 
-        items.append(makeItem(EditorLanguage.text("默认文件夹", "Default Folder"), state: target == nil ? .on : .off, targets: &targets) {
+        items.append(makeItem(EditorLanguage.text("Default Folder"), state: target == nil ? .on : .off, targets: &targets) {
             select(nil)
         })
 
@@ -437,8 +437,8 @@ struct NoteEditorView: View {
         presentingMenuOrSheet = true
         model.tips.setBlocked(true)
         let picker = NSOpenPanel()
-        picker.title = EditorLanguage.text("添加图片", "Add Image")
-        picker.prompt = EditorLanguage.text("插入", "Insert")
+        picker.title = EditorLanguage.text("Add Image")
+        picker.prompt = EditorLanguage.text("Insert")
         picker.allowedContentTypes = [.image]
         picker.canChooseDirectories = false
         picker.allowsMultipleSelection = true
@@ -455,8 +455,8 @@ struct NoteEditorView: View {
                 guard let data = try? Data(contentsOf: url), let image = NSImage(data: data),
                       image.isValid else {
                     let alert = NSAlert()
-                    alert.messageText = EditorLanguage.text("无法读取图片", "Unable to Read Image")
-                    alert.informativeText = EditorLanguage.text("无法打开“\(url.lastPathComponent)”，请检查文件是否可用或选择其他图片。", "Couldn’t open “\(url.lastPathComponent)”. Check the file or choose another image.")
+                    alert.messageText = EditorLanguage.text("Unable to Read Image")
+                    alert.informativeText = EditorLanguage.format("Couldn’t open “{0}”. Check the file or choose another image.", url.lastPathComponent)
                     alert.beginSheetModal(for: window) { _ in window.makeFirstResponder(textView) }
                     return
                 }
@@ -521,19 +521,19 @@ struct NoteEditorView: View {
         let alert = NSAlert()
         alert.alertStyle = .warning
         if unauthorized {
-            alert.messageText = EditorLanguage.text("尚未获得控制「备忘录」的权限", "Permission to Control Notes Required")
-            alert.informativeText = message + EditorLanguage.text("\n\n请在系统设置中允许 NoteMenu 控制「备忘录」后重试。", "\n\nAllow NoteMenu to control Notes in System Settings, then try again.")
-            alert.addButton(withTitle: EditorLanguage.text("打开系统设置", "Open System Settings"))
-            alert.addButton(withTitle: EditorLanguage.text("取消", "Cancel"))
+            alert.messageText = EditorLanguage.text("Permission to Control Notes Required")
+            alert.informativeText = message + EditorLanguage.text("\n\nAllow NotesMate to control Notes in System Settings, then try again.")
+            alert.addButton(withTitle: EditorLanguage.text("Open System Settings"))
+            alert.addButton(withTitle: EditorLanguage.text("Cancel"))
             let response = alert.runModal()
             if response == .alertFirstButtonReturn,
                let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
                 NSWorkspace.shared.open(url)
             }
         } else {
-            alert.messageText = EditorLanguage.text("保存到备忘录失败", "Unable to Save to Notes")
+            alert.messageText = EditorLanguage.text("Unable to Save to Notes")
             alert.informativeText = message
-            alert.addButton(withTitle: EditorLanguage.text("好", "OK"))
+            alert.addButton(withTitle: EditorLanguage.text("OK"))
             alert.runModal()
         }
     }
@@ -584,7 +584,7 @@ struct FolderFolderButton: View {
         }
         .buttonStyle(.borderless)
         .accessibilityHint(fullName)
-        .accessibilityLabel(EditorLanguage.text("选择保存目录", "Choose Save Folder"))
+        .accessibilityLabel(EditorLanguage.text("Choose Save Folder"))
     }
 }
 

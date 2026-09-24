@@ -36,9 +36,9 @@ enum FolderCatalog {
         }
     }
 
-    private static let idKey = "NoteMenu.targetFolder.id"
-    private static let nameKey = "NoteMenu.targetFolder.name"
-    private static let accountKey = "NoteMenu.targetFolder.account"
+    private static let idKey = "NotesMate.targetFolder.id"
+    private static let nameKey = "NotesMate.targetFolder.name"
+    private static let accountKey = "NotesMate.targetFolder.account"
 
     /// Injectable for tests; production code always uses the standard suite.
     static var defaults: UserDefaults = .standard

@@ -1,0 +1,3 @@
+"CFBundleDisplayName" = "NotesMate";
+"CFBundleName" = "NotesMate";
+"NSAppleEventsUsageDescription" = "NotesMate cần quyền điều khiển Ghi chú của Apple để lưu ghi chú của bạn.";

@@ -1,8 +1,8 @@
 import AppKit
 
 extension NSAttributedString.Key {
-    static let editorStyle = Self("NoteMenu.InlineStyle.v1")
-    static let editorAsset = Self("NoteMenu.Asset.v1")
+    static let editorStyle = Self("NotesMate.InlineStyle.v1")
+    static let editorAsset = Self("NotesMate.Asset.v1")
 }
 
 /// Supplies real layout geometry for the zero-length last paragraph, including when the caret is elsewhere.

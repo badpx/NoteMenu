@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "AA0000000000000000000005"
-               BuildableName = "NoteMenu.app"
+               BuildableName = "NotesMate.app"
                BlueprintName = "NoteMenu"
                ReferencedContainer = "container:NoteMenu.xcodeproj">
             </BuildableReference>
@@ -46,7 +46,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "AA0000000000000000000005"
-            BuildableName = "NoteMenu.app"
+            BuildableName = "NotesMate.app"
             BlueprintName = "NoteMenu"
             ReferencedContainer = "container:NoteMenu.xcodeproj">
          </BuildableReference>
@@ -63,7 +63,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "AA0000000000000000000005"
-            BuildableName = "NoteMenu.app"
+            BuildableName = "NotesMate.app"
             BlueprintName = "NoteMenu"
             ReferencedContainer = "container:NoteMenu.xcodeproj">
          </BuildableReference>
