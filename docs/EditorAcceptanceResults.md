@@ -28,9 +28,9 @@
 ```bash
 bash scripts/test-editor.sh
 
-xcodebuild -project NoteMenu.xcodeproj -scheme NoteMenu \
+xcodebuild -project NoteMenu.xcodeproj -scheme NotesMate \
   -configuration Debug -derivedDataPath build/editor-app CODE_SIGNING_ALLOWED=NO build
-xcodebuild -project NoteMenu.xcodeproj -scheme NoteMenu \
+xcodebuild -project NoteMenu.xcodeproj -scheme NotesMate \
   -configuration Release -derivedDataPath build/editor-release CODE_SIGNING_ALLOWED=NO build
 
 bash scripts/build-editor-harness.sh

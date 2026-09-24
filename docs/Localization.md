@@ -6,7 +6,7 @@
 - Debug 和 Release 的 Bundle ID：`com.badpxx.notesmate`。
 - 标题栏、菜单栏辅助说明、欢迎语、退出菜单、权限说明统一使用 NotesMate。
 - 草稿目录为应用沙盒内的 `Application Support/NotesMate`。不迁移旧 NoteMenu 的测试数据或偏好设置。
-- Xcode 项目、Scheme 和 Swift Package 测试模块仍名为 NoteMenu / NoteMenuEditor，仅作为工程标识，不展示给产品用户。
+- Xcode 项目和 target 仍名为 NoteMenu，Swift Package 测试模块仍名为 NoteMenuEditor；共享 Scheme 已改名为 NotesMate。这些工程标识不展示给产品用户。
 
 ## 语言匹配
 
@@ -55,6 +55,6 @@
 - `bash scripts/test-editor.sh`：编辑器回归、15 份资源完整性、占位符一致性、中文脚本 / 地区 / 语言别名、英语回退以及小贴士布局。
 - `bash scripts/capture-design-preview.sh ja light 360 --tips --verify-tips`：使用正式 SwiftUI / AppKit 组件生成预览，并验证正文不重排、选区不变、提示正文点击穿透、关闭按钮可点击。
 - 预览工具接受语言代码、`light` / `dark`、窗口宽度；示例内容为测试笔记，不作为产品翻译。
-- `xcodebuild -project NoteMenu.xcodeproj -scheme NoteMenu -configuration Debug -derivedDataPath build/debug-icon-composer build`：验收产物为 `build/debug-icon-composer/Build/Products/Debug/NotesMate.app`。
+- `xcodebuild -project NoteMenu.xcodeproj -scheme NotesMate -configuration Debug -derivedDataPath build/debug-icon-composer build`：验收产物为 `build/debug-icon-composer/Build/Products/Debug/NotesMate.app`。
 
 新增语言时同步更新 `EditorLanguage.supported`、项目的 `knownRegions`、Info.plist 的 `CFBundleLocalizations`，并补齐两份资源。文案翻译仍建议在正式发布前由母语使用者校对。

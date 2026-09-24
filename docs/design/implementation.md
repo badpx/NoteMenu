@@ -16,7 +16,7 @@
 ## 验证方式
 
 1. `bash scripts/test-editor.sh`：编辑器回归，新增语言选择、主要文字色对比度、主题切换保持文档与选区测试。
-2. `xcodebuild -project NoteMenu.xcodeproj -scheme NoteMenu -configuration Debug -derivedDataPath build/debug-icon-composer build`。
+2. `xcodebuild -project NoteMenu.xcodeproj -scheme NotesMate -configuration Debug -derivedDataPath build/debug-icon-composer build`。
 3. `bash scripts/capture-design-preview.sh`：使用生产 `NoteEditorView`、`RichTextEditor` 和实际图标生成中英文、深浅色、空白／编辑中共八张截图，并额外检查 360pt 最小宽度。产物位于 `build/design-preview`。
 
 截图使用隔离草稿和注入的目录数据，不访问 Apple Notes，也不改真实笔记或用户设置。预览图仅显示窗口内容，实际浮窗外阴影由 macOS 绘制。

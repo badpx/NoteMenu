@@ -19,6 +19,7 @@ enum EditorAppearance {
     static let chrome = color(0xFAFAF8, 0x28292A)
     static let title = color(0x202020, 0xE8E8E5)
     static let text = color(0x323232, 0xE8E8E5)
+    static let selectionBackground = color(0xFEEABF, 0x8A764B)
     static let secondary = color(0x70726E, 0xA9AAA7)
     static let placeholder = color(0x92938F, 0x92938F)
     static let separator = color(0xEAEAE6, 0x353638)

@@ -39,6 +39,7 @@ final class EditorTextView: NSTextView {
         view.isAutomaticSpellingCorrectionEnabled = false
         view.font = TextKitRenderer.font(for: .plain, block: .body)
         view.textColor = TextKitRenderer.textColor
+        view.selectedTextAttributes = [.backgroundColor: EditorAppearance.selectionBackground]
         view.insertionPointColor = NSColor(srgbRed: 252 / 255, green: 184 / 255, blue: 38 / 255, alpha: 1)
         view.drawsBackground = false
         view.isVerticallyResizable = true

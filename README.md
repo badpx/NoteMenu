@@ -4,6 +4,8 @@
 
 A lightweight macOS menu bar app for quickly jotting down notes and saving them to Apple Notes with one click.
 
+![NotesMate 输入窗口](docs/design/main-window-v1.png)
+
 ## 功能
 
 - **菜单栏常驻**：点击状态栏图标展开/收起录入浮窗，无 Dock 图标打扰
@@ -29,11 +31,13 @@ A lightweight macOS menu bar app for quickly jotting down notes and saving them 
 需要 Xcode 16 或更高版本：
 
 ```bash
-xcodebuild -project NoteMenu.xcodeproj -scheme NoteMenu -configuration Debug -derivedDataPath build build
+xcodebuild -project NoteMenu.xcodeproj -scheme NotesMate -configuration Debug -derivedDataPath build build
 open build/Build/Products/Debug/NotesMate.app
 ```
 
 或直接用 Xcode 打开 `NoteMenu.xcodeproj` 运行。
+
+官网分发使用 Developer ID 签名、公证和 DMG 打包脚本；GitHub Release 发布流程见 [发布说明](docs/Release.md)。
 
 ## 技术说明
 
@@ -65,4 +69,4 @@ MIT
 
 界面支持简体中文、繁体中文、英文、日语、韩语、德语、法语、西班牙语、葡萄牙语、意大利语、菲律宾语、印度尼西亚语、马来西亚语、泰语和越南语。按系统首选语言匹配；不支持的语言回退英语。详见 [本地化说明](docs/Localization.md)。
 
-应用名称为 **NotesMate**，Bundle ID 为 `com.badpxx.notesmate`。Xcode 项目和 Scheme 仍名为 `NoteMenu`。首次以新标识运行时使用新的草稿和偏好设置，并由系统重新管理自动化授权；不迁移旧版测试数据。
+应用名称和共享 Xcode Scheme 均为 **NotesMate**，Bundle ID 为 `com.badpxx.notesmate`。Xcode 项目及 target 仍名为 `NoteMenu`。首次以新标识运行时使用新的草稿和偏好设置，并由系统重新管理自动化授权；不迁移旧版测试数据。
