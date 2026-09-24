@@ -913,6 +913,60 @@ final class EditorAppKitTests: XCTestCase {
             XCTAssertEqual(bridge.document.paragraphs[1].text, "中")
         }
     }
+    func testListGroupSpacingUpdatesWhenNeighborChangesAndUndoRestoresIt() throws {
+        bridge.load(EditorDocument(paragraphs: [
+            Paragraph(kind: .list(.unordered, 1), runs: [InlineRun(text: "第一项")]),
+            Paragraph(runs: [InlineRun(text: "第二项")])
+        ]))
+        func firstSpacing() throws -> CGFloat {
+            try XCTUnwrap(view.textStorage?.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle).paragraphSpacing
+        }
+        XCTAssertEqual(try firstSpacing(), 6)
+        bridge.select(NSRange(location: bridge.positionMap.starts[1], length: 0))
+        bridge.execute(.list(.unordered))
+        XCTAssertEqual(try firstSpacing(), 0)
+        assertProjection()
+        view.undo(nil)
+        XCTAssertEqual(try firstSpacing(), 6)
+        assertProjection()
+        view.redo(nil)
+        XCTAssertEqual(try firstSpacing(), 0)
+        assertProjection()
+    }
+
+    func testParagraphRhythmSeparatesBlocksWithoutExpandingWrappedLinesOrExport() throws {
+        let wrapped = String(repeating: "中文 text ", count: 12)
+        let document = EditorDocument(paragraphs: [
+            Paragraph(kind: .heading(1), runs: [InlineRun(text: "标题")]),
+            Paragraph(runs: [InlineRun(text: wrapped)]),
+            Paragraph(kind: .list(.unordered, 1), runs: [InlineRun(text: "项目一")]),
+            Paragraph(kind: .list(.unordered, 1), runs: [InlineRun(text: "项目二")]),
+            Paragraph(runs: [InlineRun(text: "正文")])
+        ])
+        let exported = HTMLExporter.export(document).bodyHTML
+        bridge.load(document)
+        let layout = try XCTUnwrap(view.layoutManager)
+        layout.ensureLayout(for: view.textContainer!)
+        let map = bridge.positionMap
+        let bodyGlyphs = layout.glyphRange(forCharacterRange: map.range(of: 1), actualCharacterRange: nil)
+        var bodyLines: [NSRect] = []
+        layout.enumerateLineFragments(forGlyphRange: bodyGlyphs) { rect, _, _, _, _ in bodyLines.append(rect) }
+        XCTAssertGreaterThan(bodyLines.count, 2)
+        let innerStep = bodyLines[1].minY - bodyLines[0].minY
+        func firstLine(_ index: Int) -> NSRect {
+            layout.lineFragmentRect(forGlyphAt: layout.glyphIndexForCharacter(at: map.starts[index]), effectiveRange: nil)
+        }
+        XCTAssertEqual(firstLine(3).minY - firstLine(2).minY, innerStep, accuracy: 0.01)
+        XCTAssertEqual(firstLine(2).minY - bodyLines.last!.minY, innerStep + 6, accuracy: 0.01)
+        XCTAssertEqual(firstLine(4).minY - firstLine(3).minY, innerStep + 6, accuracy: 0.01)
+        XCTAssertEqual(bridge.document.paragraphs, document.paragraphs)
+        XCTAssertEqual(bridge.document.assets, document.assets)
+        XCTAssertEqual(HTMLExporter.export(bridge.document).bodyHTML, exported)
+        let exchange = TextKitRenderer.render(document, exchange: true)
+        XCTAssertEqual((exchange.attribute(.paragraphStyle, at: map.starts[1], effectiveRange: nil) as? NSParagraphStyle)?.paragraphSpacing, 0)
+        assertProjection()
+    }
+
     func testCodeBackgroundDoesNotResizeWhenExitingOrUndoingExit() throws {
         for blankLines in [0, 1, 3] {
             bridge.load(EditorDocument(paragraphs: [

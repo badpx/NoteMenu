@@ -114,6 +114,8 @@ enum TextKitRenderer {
     static let codeHorizontalPadding: CGFloat = 4
     static let codeVerticalPadding: CGFloat = 4
     static let codeBlockSpacing: CGFloat = 2
+    static let headingSpacing: CGFloat = 10
+    static let bodySpacing: CGFloat = 6
     static func paragraphStyle(_ kind: BlockKind, includeNativeLists: Bool = false) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
         style.lineSpacing = kind == .body || kind.list != nil ? 5 : 4
@@ -189,7 +191,7 @@ enum TextKitRenderer {
         for i in document.paragraphs.indices {
             output.append(renderParagraph(document.paragraphs[i], assets: document.assets, separator: i < document.paragraphs.count - 1, exchange: exchange))
         }
-        if !exchange { applyCodePadding(document, to: output) }
+        if !exchange { applyParagraphLayout(document, to: output) }
         return output
     }
 
@@ -240,26 +242,59 @@ enum TextKitRenderer {
         updateGeometry(document, view: view)
     }
 
-    private static func applyCodePadding(_ document: EditorDocument, to storage: NSMutableAttributedString) {
-        // Block boundary spacing must be identical in full and incremental projections.
+    /// Visual rhythm belongs to the projection, not the document or exchanged rich text.
+    static func editorParagraphStyle(_ index: Int, in document: EditorDocument) -> NSParagraphStyle {
+        let paragraph = document.paragraphs[index]
+        let next = index + 1 < document.paragraphs.count ? document.paragraphs[index + 1] : nil
+        let style = paragraphStyle(paragraph.kind).mutableCopy() as! NSMutableParagraphStyle
+        if paragraph.kind.isCode {
+            if index == 0 || !document.paragraphs[index - 1].kind.isCode {
+                style.paragraphSpacingBefore = codeVerticalPadding + (index > 0 ? codeBlockSpacing : 0)
+            }
+            if next?.kind.isCode != true {
+                style.paragraphSpacing = codeVerticalPadding + style.lineSpacing + (next != nil ? codeBlockSpacing : 0)
+            }
+        } else if !paragraph.isEmpty {
+            switch paragraph.kind {
+            case .heading:
+                style.paragraphSpacing = headingSpacing
+            case .body:
+                // Code backgrounds already own their boundary spacing.
+                style.paragraphSpacing = next?.kind.isCode == true ? 0 : bodySpacing
+            case .list:
+                // Nested and mixed list items still read as a continuous group.
+                style.paragraphSpacing = next?.kind.list != nil || next?.kind.isCode == true ? 0 : bodySpacing
+            case .codeLine: break
+            }
+        }
+        return style
+    }
+
+    private static func applyParagraphLayout(_ document: EditorDocument, to storage: NSMutableAttributedString) {
+        // Neighbors can change even when this paragraph's text did not (e.g. exiting a list).
+        // Use the same styles in full, incremental and native-input projections.
         let map = PositionMap(document)
         storage.beginEditing()
-        for i in document.paragraphs.indices where document.paragraphs[i].kind.isCode {
-            let style = paragraphStyle(.codeLine).mutableCopy() as! NSMutableParagraphStyle
-            if i == 0 || !document.paragraphs[i - 1].kind.isCode { style.paragraphSpacingBefore = codeVerticalPadding + (i > 0 ? codeBlockSpacing : 0) }
-            if i == document.paragraphs.count - 1 || !document.paragraphs[i + 1].kind.isCode { style.paragraphSpacing = codeVerticalPadding + style.lineSpacing + (i + 1 < document.paragraphs.count ? codeBlockSpacing : 0) }
+        for i in document.paragraphs.indices {
             let range = map.range(of: i, includingSeparator: true)
-            if range.length > 0 { storage.addAttribute(.paragraphStyle, value: style, range: range) }
+            guard range.length > 0 else { continue }
+            let style = editorParagraphStyle(i, in: document)
+            var matches = true
+            storage.enumerateAttribute(.paragraphStyle, in: range) { value, _, stop in
+                if (value as? NSParagraphStyle) != style { matches = false; stop.pointee = true }
+            }
+            // Avoid invalidating unrelated glyphs during every keystroke in a long draft.
+            if !matches { storage.addAttribute(.paragraphStyle, value: style, range: range) }
         }
         storage.endEditing()
     }
 
     static func updateGeometry(_ document: EditorDocument, view: NSTextView) {
-        if let storage = view.textStorage { applyCodePadding(document, to: storage) }
+        if let storage = view.textStorage { applyParagraphLayout(document, to: storage) }
         let markers = ListResolver.resolve(document)
         let maxWidth = markers.values.map { ($0.marker as NSString).size(withAttributes: [.font: ListMarkerRenderer.font(for: $0.kind)]).width }.max() ?? 0
         view.textContainerInset = NSSize(width: max(EditorAppearance.horizontalInset - 5, maxWidth + 4 - 22), height: 20)
-        view.defaultParagraphStyle = paragraphStyle(document.paragraphs.last!.kind)
+        view.defaultParagraphStyle = editorParagraphStyle(document.paragraphs.count - 1, in: document)
         if document.paragraphs.last!.isEmpty {
             view.layoutManager?.invalidateLayout(forCharacterRange: NSRange(location: document.length, length: 0), actualCharacterRange: nil)
         }

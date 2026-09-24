@@ -270,6 +270,7 @@ final class AppKitInputBridge: NSObject, NSTextViewDelegate {
         guard !isComposing, let view = textView else { return }
         let index = PositionMap(document).position(at: state.session.selection.location).index
         view.typingAttributes = TextKitRenderer.attributes(state.session.insertionStyle, block: document.paragraphs[index].kind)
+        view.typingAttributes[.paragraphStyle] = TextKitRenderer.editorParagraphStyle(index, in: document)
     }
 
     func beginComposition() {

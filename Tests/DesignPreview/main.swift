@@ -22,9 +22,7 @@ for editing in [false, true] {
         func copy(_ zh: String, _ en: String) -> String { EditorLanguage.text(zh, en) }
         model.bridge.load(EditorDocument(paragraphs: [
             Paragraph(kind: .heading(1), runs: [InlineRun(text: copy("让想法及时落地", "Give ideas a place"))]),
-            Paragraph(),
             Paragraph(runs: [InlineRun(text: copy("把零散的灵感，留给下一次思考。", "Save a thought. Come back to it later."))]),
-            Paragraph(),
             Paragraph(kind: .list(.unordered, 1), runs: [InlineRun(text: copy("随手记录，不打断当前工作", "Capture ideas without losing focus"))]),
             Paragraph(kind: .list(.unordered, 1), runs: [InlineRun(text: copy("整理好，再存进系统备忘录", "Save them directly to Apple Notes"))])
         ]))
