@@ -179,15 +179,64 @@ final class NotesSaverTests: XCTestCase {
     }
 
     func testSaveDoesNotFallBackOnOtherErrors() {
-        var calls = 0
-        var cleared = false
-        let result = NotesSaver.save(.init(bodyHTML: "<div>正文</div>", images: []), execute: { _ in
-            calls += 1
-            throw NotesSaver.ScriptError(number: -1743, message: "Not authorized")
-        }, folderID: "x-coredata://A/ICFolder/p1", onInvalidFolder: { cleared = true })
-        guard case .unauthorized = result else { return XCTFail("Must be unauthorized") }
-        XCTAssertFalse(cleared)
-        XCTAssertEqual(calls, 1)
+        for number in [-1743, -1744] {
+            var calls = 0
+            var cleared = false
+            let result = NotesSaver.save(.init(bodyHTML: "<div>正文</div>", images: []), execute: { _ in
+                calls += 1
+                throw NotesSaver.ScriptError(number: number, message: "Not authorized")
+            }, folderID: "x-coredata://A/ICFolder/p1", onInvalidFolder: { cleared = true })
+            guard case .unauthorized = result else { return XCTFail("Must be unauthorized: \(number)") }
+            XCTAssertFalse(cleared)
+            XCTAssertEqual(calls, 1)
+        }
+    }
+
+    func testAutomationPermissionMenuStateTracksBothErrorsAndSuccess() {
+        let name = "NotesMate.automation.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        XCTAssertFalse(NotesAutomationPermission.needsAuthorization(in: defaults))
+        XCTAssertTrue(NotesAutomationPermission.shouldShowAuthorizationMenu(in: defaults))
+        for number in [-1744, -1743] {
+            NotesAutomationPermission.recordScriptError(number, defaults: defaults)
+            XCTAssertTrue(NotesAutomationPermission.needsAuthorization(in: defaults))
+            XCTAssertTrue(NotesAutomationPermission.shouldShowAuthorizationMenu(in: defaults))
+            NotesAutomationPermission.recordScriptSuccess(defaults: defaults)
+            XCTAssertFalse(NotesAutomationPermission.needsAuthorization(in: defaults))
+            XCTAssertFalse(NotesAutomationPermission.shouldShowAuthorizationMenu(in: defaults))
+        }
+        NotesAutomationPermission.recordScriptError(-1728, defaults: defaults)
+        XCTAssertFalse(NotesAutomationPermission.needsAuthorization(in: defaults))
+        XCTAssertFalse(NotesAutomationPermission.shouldShowAuthorizationMenu(in: defaults))
+    }
+
+    func testFolderSelectorWaitsForSuccessfulSaveOnNewInstall() {
+        let name = "NotesMate.folderSelector.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let previousDefaults = FolderCatalog.defaults
+        FolderCatalog.defaults = defaults
+        defer { FolderCatalog.defaults = previousDefaults }
+
+        FolderCatalog.prepareForLaunch(hadOpenedEditorBefore: false)
+        XCTAssertFalse(FolderCatalog.isSelectorAvailable)
+        FolderCatalog.prepareForLaunch(hadOpenedEditorBefore: true)
+        XCTAssertFalse(FolderCatalog.isSelectorAvailable, "A restart before the first save must not load folders")
+        FolderCatalog.recordSuccessfulSave()
+        XCTAssertTrue(FolderCatalog.isSelectorAvailable)
+    }
+
+    func testExistingInstallationKeepsFolderSelector() {
+        let name = "NotesMate.folderSelector.legacy.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let previousDefaults = FolderCatalog.defaults
+        FolderCatalog.defaults = defaults
+        defer { FolderCatalog.defaults = previousDefaults }
+
+        FolderCatalog.prepareForLaunch(hadOpenedEditorBefore: true)
+        XCTAssertTrue(FolderCatalog.isSelectorAvailable)
     }
 
     func testTargetFolderPersistsAcrossDefaultsRoundTrip() {

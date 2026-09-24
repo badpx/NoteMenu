@@ -47,6 +47,10 @@
 "Permission to Control Notes Required" = "尚未获得控制「备忘录」的权限";
 "\n\nAllow NotesMate to control Notes in System Settings, then try again." = "\n\n请在系统设置中允许 NotesMate 控制「备忘录」后重试。";
 "Open System Settings" = "打开系统设置";
+"Authorize Access to Notes" = "授权访问备忘录";
+"Language" = "语言";
+"Follow System Language" = "跟随系统语言";
+"Allow NotesMate to control Notes in System Settings → Privacy & Security → Automation, then retry." = "请在「系统设置→隐私与安全性→自动化」中允许NotesMate控制「备忘录」,然后重试。";
 "Cancel" = "取消";
 "Unable to Save to Notes" = "保存到备忘录失败";
 "Choose Save Folder" = "选择保存目录";

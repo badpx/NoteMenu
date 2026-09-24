@@ -105,6 +105,20 @@ final class EditorTipsTests: XCTestCase {
         XCTAssertNotNil(tips.visible)
         XCTAssertFalse(tips.history.isLearned(.information(id: "notice", message: "再次更新")))
     }
+    func testInformationNoticeAppearsDuringSaveHoverAndExpiresAfterFourSeconds() {
+        let tips = controller()
+        tips.activate()
+        tips.saveHover(true)
+        tips.setBlocked(true)
+        tips.showInformation(id: "permission", message: "授权提示", duration: 4)
+        tips.setBlocked(false)
+        pump()
+        XCTAssertEqual(tips.visible?.message, "授权提示")
+        pump(3.99)
+        XCTAssertNotNil(tips.visible)
+        pump(0.02)
+        XCTAssertNil(tips.visible)
+    }
     func testFIFOAndLearningWhileQueuedAndCloseCancelsOldCallbacks() {
         let tips = controller(); tips.activate()
         tips.showFeature(.codeExit); tips.showFeature(.indent); tips.showFeature(.selectAll); pump()

@@ -34,9 +34,12 @@ enum NotesSaver {
         var error: NSDictionary?
         let result = script.executeAndReturnError(&error)
         if let error {
-            throw ScriptError(number: error[OSAScriptErrorNumber] as? Int ?? 0,
+            let number = error[OSAScriptErrorNumber] as? Int ?? 0
+            NotesAutomationPermission.recordScriptError(number)
+            throw ScriptError(number: number,
                               message: error[OSAScriptErrorMessage] as? String ?? EditorLanguage.text("Unable to save to Notes."))
         }
+        NotesAutomationPermission.recordScriptSuccess()
         return result?.stringValue ?? ""
     }
 
@@ -111,7 +114,8 @@ enum NotesSaver {
                 }
             }
             if preserveFiles { detail += EditorLanguage.format("\nTemporary image files are kept at {0}", directory.path) }
-            if let error = error as? ScriptError, error.number == -1743 { return .unauthorized(detail) }
+            if let error = error as? ScriptError,
+               NotesAutomationPermission.isAuthorizationError(error.number) { return .unauthorized(detail) }
             return .failed(detail)
         }
     }

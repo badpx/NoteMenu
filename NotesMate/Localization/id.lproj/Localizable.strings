@@ -47,6 +47,10 @@
 "Permission to Control Notes Required" = "Perlu Izin untuk Mengontrol Catatan";
 "\n\nAllow NotesMate to control Notes in System Settings, then try again." = "\n\nIzinkan NotesMate mengontrol Catatan di Pengaturan Sistem, lalu coba lagi.";
 "Open System Settings" = "Buka Pengaturan Sistem";
+"Authorize Access to Notes" = "Izinkan akses ke Catatan";
+"Language" = "Bahasa";
+"Follow System Language" = "Ikuti bahasa sistem";
+"Allow NotesMate to control Notes in System Settings → Privacy & Security → Automation, then retry." = "Izinkan NotesMate mengontrol Catatan di Pengaturan Sistem → Privasi & Keamanan → Otomasi, lalu coba lagi.";
 "Cancel" = "Batal";
 "Unable to Save to Notes" = "Tidak Dapat Menyimpan ke Catatan";
 "Choose Save Folder" = "Pilih Folder";

@@ -51,11 +51,33 @@ final class EditorLanguageTests: XCTestCase {
         XCTAssertEqual(EditorLanguage.text("Future untranslated key", languages: ["ja"]), "Future untranslated key")
     }
 
+    #if DEBUG
+    func testDebugLanguageOverrideKeepsExplicitLanguageLookupsIndependent() {
+        let previous = EditorLanguage.debugOverride
+        defer { EditorLanguage.setDebugOverride(previous) }
+        EditorLanguage.setDebugOverride("fr")
+        XCTAssertEqual(EditorLanguage.text("Body"), "Corps")
+        XCTAssertEqual(EditorLanguage.text("Body", languages: ["en"]), "Body")
+        EditorLanguage.setDebugOverride("zh-Hans")
+        XCTAssertEqual(EditorLanguage.text("Body"), "正文")
+    }
+    #endif
+
+    func testAuthorizationNoticeIsTranslatedInAllLanguages() {
+        let key = "Allow NotesMate to control Notes in System Settings → Privacy & Security → Automation, then retry."
+        for language in EditorLanguage.supported where language != "en" {
+            XCTAssertNotEqual(EditorLanguage.text(key, languages: [language]), key, language)
+        }
+        XCTAssertEqual(EditorLanguage.text(key, languages: ["zh-Hans"]),
+                       "请在「系统设置→隐私与安全性→自动化」中允许NotesMate控制「备忘录」,然后重试。")
+    }
+
     func testAllLocalizedTipsFitMinimumWindowWithoutChangingWidth() throws {
         let keys = ["Start a line with # and a space to create a heading.", "Press Tab to indent and ⇧+Tab to outdent.",
                     "Press ↓ on the last line of a code block to return to body text.",
                     "Press ⌘+A repeatedly to select the entire note.",
-                    "Hello, welcome to {0}.\nCapture ideas and save to Apple Notes."]
+                    "Hello, welcome to {0}.\nCapture ideas and save to Apple Notes.",
+                    "Allow NotesMate to control Notes in System Settings → Privacy & Security → Automation, then retry."]
         for language in EditorLanguage.supported {
             for key in keys {
                 let message = EditorLanguage.format(key, AppIdentity.productName, languages: [language])
@@ -66,6 +88,10 @@ final class EditorLanguageTests: XCTestCase {
                 XCTAssertEqual(small.size, wide.size)
                 XCTAssertGreaterThanOrEqual(small.height, 40)
                 XCTAssertLessThanOrEqual(small.height, 100, "\(language): \(message)")
+                if key.hasPrefix("Allow NotesMate to control Notes") {
+                    XCTAssertNotNil(EditorTipContext.frame(for: tip, in: CGSize(width: 360, height: 110)),
+                                    "Authorization notice must fit the minimum-height editor: \(language)")
+                }
             }
         }
     }

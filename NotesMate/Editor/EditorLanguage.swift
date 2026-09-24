@@ -5,10 +5,36 @@ enum AppIdentity {
     static let bundleIdentifier = "com.badpxx.notesmate"
 }
 
-/// Uses macOS's preferred language, including the per-app override. User content and
-/// folder names are never translated. Unsupported primary languages fall back to English.
+/// Uses macOS's preferred language, including the per-app override, unless a Debug
+/// language is selected. User content and folder names are never translated.
 enum EditorLanguage {
     static let supported = ["zh-Hans", "zh-Hant", "en", "ja", "ko", "de", "fr", "es", "pt", "it", "fil", "id", "ms", "th", "vi"]
+    static let didChangeNotification = Notification.Name("NotesMate.editorLanguageDidChange")
+
+    #if DEBUG
+    private static let debugOverrideKey = "NotesMate.debug.languageOverride"
+    static var debugOverride: String? {
+        guard let value = UserDefaults.standard.string(forKey: debugOverrideKey), supported.contains(value) else { return nil }
+        return value
+    }
+
+    static func setDebugOverride(_ language: String?) {
+        let value = language.flatMap { supported.contains($0) ? $0 : nil }
+        if let value {
+            UserDefaults.standard.set(value, forKey: debugOverrideKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: debugOverrideKey)
+        }
+        NotificationCenter.default.post(name: didChangeNotification, object: nil)
+    }
+    #endif
+
+    private static var preferredLanguages: [String] {
+        #if DEBUG
+        if let debugOverride { return [debugOverride] }
+        #endif
+        return Locale.preferredLanguages
+    }
     static func language(for languages: [String]) -> String {
         guard let first = languages.first else { return "en" }
         let parts = first.replacingOccurrences(of: "_", with: "-").lowercased().split(separator: "-").map(String.init)
@@ -42,13 +68,13 @@ enum EditorLanguage {
         return (language, table)
     })
 
-    static func text(_ key: String, languages: [String] = Locale.preferredLanguages) -> String {
-        catalogs[language(for: languages)]?[key] ?? catalogs["en"]?[key] ?? key
+    static func text(_ key: String, languages: [String]? = nil) -> String {
+        catalogs[language(for: languages ?? preferredLanguages)]?[key] ?? catalogs["en"]?[key] ?? key
     }
 
     /// Single-pass substitution keeps inserted filenames/errors literal, even if they
     /// contain tokens or percent signs. Translations may reorder numbered arguments.
-    static func format(_ key: String, _ values: String..., languages: [String] = Locale.preferredLanguages) -> String {
+    static func format(_ key: String, _ values: String..., languages: [String]? = nil) -> String {
         let message = text(key, languages: languages)
         let result = NSMutableString(string: message)
         let regex = try! NSRegularExpression(pattern: "\\{([0-9]+)\\}")

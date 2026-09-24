@@ -47,6 +47,10 @@
 "Permission to Control Notes Required" = "メモを操作する権限が必要です";
 "\n\nAllow NotesMate to control Notes in System Settings, then try again." = "\n\nシステム設定で NotesMate にメモの操作を許可してから、もう一度お試しください。";
 "Open System Settings" = "システム設定を開く";
+"Authorize Access to Notes" = "メモへのアクセスを許可";
+"Language" = "言語";
+"Follow System Language" = "システムの言語に従う";
+"Allow NotesMate to control Notes in System Settings → Privacy & Security → Automation, then retry." = "「システム設定 → プライバシーとセキュリティ → オートメーション」で NotesMate にメモの操作を許可してから、再試行してください。";
 "Cancel" = "キャンセル";
 "Unable to Save to Notes" = "メモに保存できません";
 "Choose Save Folder" = "保存先フォルダを選択";

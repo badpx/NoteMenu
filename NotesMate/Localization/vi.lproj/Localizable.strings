@@ -47,6 +47,10 @@
 "Permission to Control Notes Required" = "Cần quyền điều khiển Ghi chú";
 "\n\nAllow NotesMate to control Notes in System Settings, then try again." = "\n\nCho phép NotesMate điều khiển Ghi chú trong Cài đặt hệ thống, rồi thử lại.";
 "Open System Settings" = "Mở Cài đặt hệ thống";
+"Authorize Access to Notes" = "Cho phép truy cập Ghi chú";
+"Language" = "Ngôn ngữ";
+"Follow System Language" = "Theo ngôn ngữ hệ thống";
+"Allow NotesMate to control Notes in System Settings → Privacy & Security → Automation, then retry." = "Cho phép NotesMate điều khiển Ghi chú trong Cài đặt hệ thống → Quyền riêng tư & Bảo mật → Tự động hóa, rồi thử lại.";
 "Cancel" = "Hủy";
 "Unable to Save to Notes" = "Không thể lưu vào Ghi chú";
 "Choose Save Folder" = "Chọn thư mục";

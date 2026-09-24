@@ -18,6 +18,10 @@ enum EditorTip: Equatable, Hashable {
     var isFeature: Bool {
         switch self { case .information, .save: return false; default: return true }
     }
+    var isInformation: Bool {
+        if case .information = self { return true }
+        return false
+    }
     var icon: String { isFeature ? "lightbulb" : "info.circle" }
     var message: String {
         switch self {
@@ -141,7 +145,8 @@ final class EditorTipsController: ObservableObject {
 
     private func drain() {
         guard active, sessionActive, !isBlocked, visible == nil, pending == nil,
-              !saveHovered, !saveFocused, !queue.isEmpty else { return }
+              let first = queue.first,
+              first.tip.isInformation || !saveHovered && !saveFocused else { return }
         // Next main-loop turn: format/menu/selection processing must finish first.
         schedule(after: 0) { [weak self] in
             guard let self, self.active, self.sessionActive, !self.isBlocked, self.visible == nil else { return }

@@ -15,6 +15,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
 
+        FolderCatalog.prepareForLaunch(hadOpenedEditorBefore: UserDefaults.standard.bool(forKey: Self.didShowFirstLaunchEditorKey))
+
         panelController = PanelController()
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -29,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         registerHotKeys()
+        refreshNotesAutomationPermission()
         // The status item may need more than one run-loop turn to acquire a window
         // and its final menu-bar frame. Never show or persist an unanchored panel.
         DispatchQueue.main.async { [weak self] in self?.showFirstLaunchEditorWhenReady() }
@@ -62,6 +65,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         for hotKey in hotKeys { UnregisterEventHotKey(hotKey) }
         if let hotKeyHandler { RemoveEventHandler(hotKeyHandler) }
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        refreshNotesAutomationPermission()
+    }
+
+    private func refreshNotesAutomationPermission() {
+        DispatchQueue.global(qos: .utility).async {
+            NotesAutomationPermission.refreshIfNotesIsRunning()
+        }
     }
 
     private func registerHotKeys() {
@@ -169,6 +182,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         openNotesItem.keyEquivalentModifierMask = [.control, .command]
         openNotesItem.target = self
         menu.addItem(openNotesItem)
+        if NotesAutomationPermission.shouldShowAuthorizationMenu {
+            let permissionItem = NSMenuItem(
+                title: EditorLanguage.text("Authorize Access to Notes"),
+                action: #selector(authorizeNotes(_:)),
+                keyEquivalent: ""
+            )
+            permissionItem.target = self
+            menu.addItem(permissionItem)
+        }
         menu.addItem(.separator())
 
         let launchItem = NSMenuItem(
@@ -179,6 +201,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         launchItem.target = self
         launchItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(launchItem)
+
+        #if DEBUG
+        menu.addItem(.separator())
+        let languageItem = NSMenuItem(title: EditorLanguage.text("Language"), action: nil, keyEquivalent: "")
+        let languageMenu = NSMenu()
+        let systemItem = NSMenuItem(
+            title: EditorLanguage.text("Follow System Language"),
+            action: #selector(selectDebugLanguage(_:)),
+            keyEquivalent: ""
+        )
+        systemItem.target = self
+        systemItem.state = EditorLanguage.debugOverride == nil ? .on : .off
+        languageMenu.addItem(systemItem)
+        languageMenu.addItem(.separator())
+        for (code, name) in Self.debugLanguageNames {
+            let item = NSMenuItem(title: name, action: #selector(selectDebugLanguage(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = code
+            item.state = EditorLanguage.debugOverride == code ? .on : .off
+            languageMenu.addItem(item)
+        }
+        languageItem.submenu = languageMenu
+        menu.addItem(languageItem)
+        menu.addItem(.separator())
+        #endif
 
         let quitItem = NSMenuItem(
             title: EditorLanguage.text("Quit NotesMate"),
@@ -191,6 +238,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = menu
         statusItem.button?.performClick(nil)
         statusItem.menu = nil
+    }
+
+    #if DEBUG
+    private static let debugLanguageNames: [(String, String)] = [
+        ("zh-Hans", "简体中文"), ("zh-Hant", "繁體中文"), ("en", "English"),
+        ("ja", "日本語"), ("ko", "한국어"), ("de", "Deutsch"),
+        ("fr", "Français"), ("es", "Español"), ("pt", "Português"),
+        ("it", "Italiano"), ("fil", "Filipino"), ("id", "Bahasa Indonesia"),
+        ("ms", "Bahasa Melayu"), ("th", "ไทย"), ("vi", "Tiếng Việt"),
+    ]
+
+    @objc private func selectDebugLanguage(_ sender: NSMenuItem) {
+        let language = sender.representedObject as? String
+        DispatchQueue.main.async { EditorLanguage.setDebugOverride(language) }
+    }
+    #endif
+
+    @objc private func authorizeNotes(_ sender: Any?) {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Notes") else {
+            showOpenNotesError(EditorLanguage.text("Apple Notes could not be found."))
+            return
+        }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        NSWorkspace.shared.openApplication(at: url, configuration: configuration) { [weak self] notes, error in
+            if let error {
+                DispatchQueue.main.async { self?.showOpenNotesError(error.localizedDescription) }
+                return
+            }
+            guard let notes else { return }
+            DispatchQueue.global(qos: .userInitiated).async {
+                let status = NotesAutomationPermission.determine(for: notes, askUserIfNeeded: true)
+                if status != noErr {
+                    DispatchQueue.main.async {
+                        NSWorkspace.shared.open(NotesAutomationPermission.settingsURL)
+                    }
+                }
+            }
+        }
     }
 
     @objc private func openNotes(_ sender: Any?) {

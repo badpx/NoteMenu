@@ -47,6 +47,10 @@
 "Permission to Control Notes Required" = "Kailangan ng Pahintulot na Kontrolin ang Notes";
 "\n\nAllow NotesMate to control Notes in System Settings, then try again." = "\n\nPayagan ang NotesMate na kontrolin ang Notes sa System Settings, saka subukan muli.";
 "Open System Settings" = "Buksan ang System Settings";
+"Authorize Access to Notes" = "Payagan ang access sa Notes";
+"Language" = "Wika";
+"Follow System Language" = "Gamitin ang wika ng system";
+"Allow NotesMate to control Notes in System Settings → Privacy & Security → Automation, then retry." = "Payagan ang NotesMate na kontrolin ang Notes sa System Settings → Privacy & Security → Automation, saka subukan muli.";
 "Cancel" = "Kanselahin";
 "Unable to Save to Notes" = "Hindi Ma-save sa Notes";
 "Choose Save Folder" = "Pumili ng Folder";

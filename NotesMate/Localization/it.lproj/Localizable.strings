@@ -47,6 +47,10 @@
 "Permission to Control Notes Required" = "È richiesta l’autorizzazione per controllare Note";
 "\n\nAllow NotesMate to control Notes in System Settings, then try again." = "\n\nConsenti a NotesMate di controllare Note in Impostazioni di Sistema, poi riprova.";
 "Open System Settings" = "Apri Impostazioni di Sistema";
+"Authorize Access to Notes" = "Autorizza accesso a Note";
+"Language" = "Lingua";
+"Follow System Language" = "Usa la lingua di sistema";
+"Allow NotesMate to control Notes in System Settings → Privacy & Security → Automation, then retry." = "Consenti a NotesMate di controllare Note in Impostazioni di Sistema → Privacy e sicurezza → Automazione, poi riprova.";
 "Cancel" = "Annulla";
 "Unable to Save to Notes" = "Impossibile salvare in Note";
 "Choose Save Folder" = "Scegli cartella";

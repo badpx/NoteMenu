@@ -6,12 +6,14 @@ struct NoteEditorView: View {
     @StateObject private var model: NoteEditorModel
     @State private var isPinned: Bool
     @State private var isSaveHovered = false
+    @State private var languageRevision = 0
     @FocusState private var saveFocused: Bool
     @State private var presentingMenuOrSheet = false
     @State private var showSavedNotice = false
     @State private var savedNoticeGeneration = 0
     @State private var folders: [NotesFolder] = []
     @State private var targetFolder: NotesFolder? = FolderCatalog.target
+    @State private var isFolderSelectorAvailable = FolderCatalog.isSelectorAvailable
     @State private var catalogState: CatalogState = .loading
 
     private enum CatalogState {
@@ -47,6 +49,7 @@ struct NoteEditorView: View {
     private let saveAction: ((NotesSaver.NoteContent) -> NotesSaver.SaveResult)?
 
     var body: some View {
+        let _ = languageRevision
         VStack(spacing: 0) {
             header
             Color(nsColor: EditorAppearance.separator).frame(height: 1 / displayScale)
@@ -71,6 +74,11 @@ struct NoteEditorView: View {
         .onChange(of: saveFocused) { model.tips.saveFocus($0) }
         .onDisappear { model.tips.endSession() }
         .onReceive(model.tips.activityEvents) { showSavedNotice = false }
+        .onReceive(NotificationCenter.default.publisher(for: EditorLanguage.didChangeNotification)) { _ in
+            languageRevision += 1
+            model.tips.activity(clearStatus: false)
+            model.bridge.textView?.needsDisplay = true
+        }
         .onAppear {
             if let message = model.recoveryMessage {
                 let alert = NSAlert()
@@ -78,7 +86,7 @@ struct NoteEditorView: View {
                 alert.informativeText = message
                 alert.runModal()
             }
-            reloadCatalog()
+            if isFolderSelectorAvailable { reloadCatalog() }
         }
     }
 
@@ -207,15 +215,17 @@ struct NoteEditorView: View {
 
             Spacer(minLength: 4)
 
-            Color(nsColor: EditorAppearance.separator)
-                .frame(width: 1 / displayScale, height: 20)
+            if isFolderSelectorAvailable {
+                Color(nsColor: EditorAppearance.separator)
+                    .frame(width: 1 / displayScale, height: 20)
 
-            FolderFolderButton(
-                name: targetFolder?.name ?? EditorLanguage.text("Default"),
-                isSelected: targetFolder != nil,
-                fullName: targetFolder.map { EditorLanguage.format("Save folder: {0}", $0.name) } ?? EditorLanguage.text("Save folder: Default")
-            ) {
-                showFolderMenu()
+                FolderFolderButton(
+                    name: targetFolder?.name ?? EditorLanguage.text("Default"),
+                    isSelected: targetFolder != nil,
+                    fullName: targetFolder.map { EditorLanguage.format("Save folder: {0}", $0.name) } ?? EditorLanguage.text("Save folder: Default")
+                ) {
+                    showFolderMenu()
+                }
             }
 
             Button(action: { model.bridge.requestSave() }) {
@@ -417,7 +427,7 @@ struct NoteEditorView: View {
                 case .failure(let error):
                     let scriptError = error as? NotesSaver.ScriptError
                     catalogState = .failed(message: error.localizedDescription,
-                                           unauthorized: scriptError?.number == -1743)
+                                           unauthorized: scriptError.map { NotesAutomationPermission.isAuthorizationError($0.number) } ?? false)
                 }
             }
         }
@@ -488,12 +498,19 @@ struct NoteEditorView: View {
             defer { updateTipBlocking() }
             switch result {
             case .success:
+                FolderCatalog.recordSuccessfulSave()
+                isFolderSelectorAvailable = true
                 targetFolder = FolderCatalog.target
+                reloadCatalog()
                 showSavedNotice = true
                 savedNoticeGeneration += 1
                 DispatchQueue.main.async { onSaved() }
-            case .unauthorized(let message):
-                showError(message: message, unauthorized: true)
+            case .unauthorized:
+                model.tips.showInformation(
+                    id: "save.automation.permission",
+                    message: EditorLanguage.text("Allow NotesMate to control Notes in System Settings → Privacy & Security → Automation, then retry."),
+                    duration: 4
+                )
             case .failed(let message):
                 showError(message: message, unauthorized: false)
             }
@@ -526,9 +543,8 @@ struct NoteEditorView: View {
             alert.addButton(withTitle: EditorLanguage.text("Open System Settings"))
             alert.addButton(withTitle: EditorLanguage.text("Cancel"))
             let response = alert.runModal()
-            if response == .alertFirstButtonReturn,
-               let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
-                NSWorkspace.shared.open(url)
+            if response == .alertFirstButtonReturn {
+                NSWorkspace.shared.open(NotesAutomationPermission.settingsURL)
             }
         } else {
             alert.messageText = EditorLanguage.text("Unable to Save to Notes")

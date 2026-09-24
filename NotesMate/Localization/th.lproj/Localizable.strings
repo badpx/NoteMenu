@@ -47,6 +47,10 @@
 "Permission to Control Notes Required" = "ต้องได้รับอนุญาตให้ควบคุมโน้ต";
 "\n\nAllow NotesMate to control Notes in System Settings, then try again." = "\n\nอนุญาตให้ NotesMate ควบคุมโน้ตในการตั้งค่าระบบ แล้วลองอีกครั้ง";
 "Open System Settings" = "เปิดการตั้งค่าระบบ";
+"Authorize Access to Notes" = "อนุญาตให้เข้าถึงโน้ต";
+"Language" = "ภาษา";
+"Follow System Language" = "ใช้ภาษาของระบบ";
+"Allow NotesMate to control Notes in System Settings → Privacy & Security → Automation, then retry." = "อนุญาตให้ NotesMate ควบคุมโน้ตใน การตั้งค่าระบบ → ความเป็นส่วนตัวและความปลอดภัย → การทำงานอัตโนมัติ แล้วลองอีกครั้ง";
 "Cancel" = "ยกเลิก";
 "Unable to Save to Notes" = "บันทึกไปยังโน้ตไม่ได้";
 "Choose Save Folder" = "เลือกโฟลเดอร์";

@@ -39,9 +39,23 @@ enum FolderCatalog {
     private static let idKey = "NotesMate.targetFolder.id"
     private static let nameKey = "NotesMate.targetFolder.name"
     private static let accountKey = "NotesMate.targetFolder.account"
+    private static let selectorAvailableKey = "NotesMate.folderSelector.available"
 
     /// Injectable for tests; production code always uses the standard suite.
     static var defaults: UserDefaults = .standard
+
+    /// A new installation waits until the first successful save before reading folders.
+    /// Existing installations keep their previously available folder selector.
+    static var isSelectorAvailable: Bool { defaults.bool(forKey: selectorAvailableKey) }
+
+    static func prepareForLaunch(hadOpenedEditorBefore: Bool) {
+        guard defaults.object(forKey: selectorAvailableKey) == nil else { return }
+        defaults.set(hadOpenedEditorBefore, forKey: selectorAvailableKey)
+    }
+
+    static func recordSuccessfulSave() {
+        defaults.set(true, forKey: selectorAvailableKey)
+    }
 
     /// The folder new notes are saved into; `nil` means the default folder.
     static var target: NotesFolder? {

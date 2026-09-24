@@ -47,6 +47,10 @@
 "Permission to Control Notes Required" = "메모 제어 권한 필요";
 "\n\nAllow NotesMate to control Notes in System Settings, then try again." = "\n\n시스템 설정에서 NotesMate가 메모를 제어하도록 허용한 후 다시 시도하세요.";
 "Open System Settings" = "시스템 설정 열기";
+"Authorize Access to Notes" = "메모 접근 허용";
+"Language" = "언어";
+"Follow System Language" = "시스템 언어 따르기";
+"Allow NotesMate to control Notes in System Settings → Privacy & Security → Automation, then retry." = "시스템 설정 → 개인정보 보호 및 보안 → 자동화에서 NotesMate의 메모 제어를 허용한 후 다시 시도하세요.";
 "Cancel" = "취소";
 "Unable to Save to Notes" = "메모에 저장할 수 없음";
 "Choose Save Folder" = "저장 폴더 선택";

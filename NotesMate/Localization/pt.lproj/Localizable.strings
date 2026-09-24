@@ -47,6 +47,10 @@
 "Permission to Control Notes Required" = "É necessária permissão para controlar o Notas";
 "\n\nAllow NotesMate to control Notes in System Settings, then try again." = "\n\nPermita que o NotesMate controle o Notas nos Ajustes do Sistema e tente novamente.";
 "Open System Settings" = "Abrir Ajustes do Sistema";
+"Authorize Access to Notes" = "Autorizar acesso ao Notas";
+"Language" = "Idioma";
+"Follow System Language" = "Usar idioma do sistema";
+"Allow NotesMate to control Notes in System Settings → Privacy & Security → Automation, then retry." = "Permita que o NotesMate controle o Notas em Ajustes do Sistema → Privacidade e Segurança → Automação e tente novamente.";
 "Cancel" = "Cancelar";
 "Unable to Save to Notes" = "Não foi possível salvar no Notas";
 "Choose Save Folder" = "Escolher pasta";
