@@ -145,5 +145,6 @@ fi
 [[ $published_commit == "$built_commit" ]] || die "origin tag $tag changed to a different commit"
 
 gh release create "$tag" "$asset" "$release_dir/SHA256SUMS" \
-    --verify-tag --title "NotesMate $version" "${notes_args[@]}" "${draft_args[@]}"
+    --verify-tag --title "NotesMate $version" "${notes_args[@]}" \
+    ${draft_args[@]+"${draft_args[@]}"}
 gh release view "$tag" --json url --jq .url
