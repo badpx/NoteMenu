@@ -1,8 +1,8 @@
 # NotesMate 多后端保存架构方案
 
-状态：**已按用户确认的产品方向修订，尚未实施**。调研日期：2026-09-25；代码基线：`main / 6a11f8d`。本次修订依据见第 13 节。
+状态：**多后端架构尚未实施；已移除发布前的 RTFD 草稿迁移逻辑**。调研日期：2026-09-25；原始调研代码基线：`main / 6a11f8d`。产品方向见第 13 节。
 
-本轮只维护方案文档。以下明确区分已存在的实现、已确认的产品方向、技术建议和后续验证项；不把设计中的接口视为已实现功能。
+本次代码清理仅移除发布前的 RTFD 草稿兼容路径和对应测试；多后端功能仍为方案。以下明确区分已存在的实现、已确认的产品方向、技术建议和后续验证项；不把设计中的接口视为已实现功能。
 
 ## 1. 建议结论与范围
 
@@ -32,7 +32,7 @@
 | 视图 | [NoteEditorView.swift](../NotesMate/Views/NoteEditorView.swift) | SwiftUI 工具栏与原生菜单；持有 `[NotesFolder]` 和目标，加载目录、过滤废纸篓、回退失效目录、解释 AppleScript 错误、打开权限设置、更新保存成功状态 |
 | 编辑协调 | [NoteEditorModel.swift](../NotesMate/Editor/NoteEditorModel.swift) | 编辑操作、提示、草稿恢复／防抖持久化；直接导出 `NotesSaver.NoteContent`，执行 Notes 类型的 writer，按 revision 决定是否清空 |
 | 编辑内核 | [EditorDocument.swift](../NotesMate/Editor/Core/EditorDocument.swift)、[AppKitInputBridge.swift](../NotesMate/Editor/AppKit/AppKitInputBridge.swift) | Foundation 语义模型 + Reducer + TextKit 投影；段落、行内格式、图片 Data、顺序和 revision 已有独立表示，是解耦的基础 |
-| 草稿 | [DraftStore.swift](../NotesMate/Editor/Persistence/DraftStore.swift) | `draft-v1.json` 原子信封，内含文档／原始图片／空稿输入格式；串行队列和 generation 抑制旧写入，兼容旧 RTFD，不依赖 Notes |
+| 草稿 | [DraftStore.swift](../NotesMate/Editor/Persistence/DraftStore.swift) | 只读写 `draft-v1.json` 原子信封，内含文档／原始图片／空稿输入格式；串行队列和 generation 抑制旧写入，保留 JSON 恢复校验和损坏源保护，不依赖 Notes |
 | 内容导出 | [HTMLExporter.swift](../NotesMate/Notes/HTMLExporter.swift) | 从模型生成 HTML 与图片出现顺序；HTML 内用 `NotesMateImage` 占位符，为 Notes 写入流程服务 |
 | 目录与偏好 | [FolderCatalog.swift](../NotesMate/Notes/FolderCatalog.swift) | AppleScript 枚举账户文件夹、解析制表符结果，同时持久化所选目录与选择器可用性；通过 `NotesSaver.runScript` 执行 |
 | 写入 | [NotesSaver.swift](../NotesMate/Notes/NotesSaver.swift) | OSAKit 脚本执行、图片 PNG 临时文件、建笔记、追加附件、回读校验、失败回滚、默认目录回退；还读写权限和目标全局状态 |
@@ -76,6 +76,14 @@ flowchart LR
 - **显示逻辑包含产品规则。** 授权说明、欢迎语、保存状态、快捷键和错误标题都写死 Notes；目录失效回退也散落在视图和 saver 两处。
 
 以上是代码结构与潜在故障路径的判断，不代表本轮已复现所有竞态。旧设计文档可供背景参考，当前行为以源码为准，例如当前列表支持八级，而早期设计稿记录过三级。
+
+### 2.4 草稿格式的正式发布边界
+
+根据用户确认的发布历史：2026-09-20 的 `007dc87` 在发布前将草稿从 RTFD 改为 JSON，当时只有本地测试数据，且后来已经清理；2026-09-24 首次正式构建 v1.0 并经官网分发时，草稿已经使用 `draft-v1.json`。因此没有需要升级的线上 RTFD 草稿。
+
+已移除 `draft.rtfd` 探测／导入、`draft-legacy-*.rtfd` 备份及两项迁移测试。正式草稿格式仍为 v1，不新增 v2 或数据迁移；JSON 不存在时返回无草稿，损坏时仍报错并保护原文件。RTFD 作为剪贴板富文本交换格式的支持保持原样。
+
+本次清理已运行 `bash scripts/test-editor.sh --filter 'EditorPersistenceTests|AsyncSaveTests'`：9 项持久化测试和 3 项异步保存测试通过，合计 12 项、0 失败。这仅验证本次清理，不代表后续多后端实现已通过验收。
 
 ## 3. 目标架构与依赖方向
 
@@ -417,7 +425,7 @@ Apple Notes 专有的 HTML 占位符、临时文件 URL、attachment API 和脚�
 2. `NotesMate.folderSelector.available` 和旧首次打开标志仅迁移为 Notes 的自动目录加载策略，不阻止用户添加其他后端。
 3. `NotesMate.notesAutomation.*` 只作为旧提示缓存参考，不写成永久授权事实；按实际操作重新确认。
 4. 配置完整原子写入成功后才记录迁移完成；保留旧键以便旧版本读取，不维持长期双写。降级到旧版无法理解新后端，旧版仍用原 Notes 目标；此限制写入发布说明。
-5. `draft-v1.json` 与旧 RTFD 迁移规则保持不变；增加会话 draft ID 和 attempt 记录不要求重写历史草稿。重启恢复时通过持久化身份／内容摘要对应活动草稿，不能仅比较进程内 revision。
+5. 正式草稿继续使用 `draft-v1.json`，不保留发布前 RTFD 迁移路径，也不因多后端设计升级草稿格式；增加会话 draft ID 和 attempt 记录不要求重写历史草稿。重启恢复时通过持久化身份／内容摘要对应活动草稿，不能仅比较进程内 revision。
 6. 未识别的新配置版本／缺失 provider 要保留配置并显示不可用，不能悄悄重置为 Apple Notes。每次迁移幂等，失败保留原文件。
 
 ## 10. 文件落点和迁移顺序
@@ -460,7 +468,7 @@ NotesMate/
 
 ## 11. 验证方案与验收标准
 
-本轮没有改动可执行代码，也未运行测试或实际请求系统权限。以下为实施验收计划。
+以下为多后端实施验收计划，不能视为已通过的结果。已完成的代码清理仅涉及发布前 RTFD 草稿兼容路径，其验证与后续多后端验收分开记录。
 
 | 验证面 | 关键案例 |
 | --- | --- |
@@ -510,4 +518,4 @@ NotesMate/
 
 以下是为落地提出的技术默认，不冒充用户逐项指定的要求：Markdown 方言的有限扩展、每笔一个目录、引导可稍后设置、每次最多两个回退候选、回退成功后更新该实例的位置。其取舍分别记录于对应章节，可在实施细化时调整而不改变上述产品方向。
 
-首个其他笔记软件尚未指定，可在完成两个首发后端后调研，不阻塞当前架构设计。后续实施按 P1–P4 分阶段推进，每阶段保持可构建和可回归；本次修订仍只更新方案文档。
+草稿发布边界已确认，发布前 RTFD 兼容逻辑已清理，详见第 2.4 节。首个其他笔记软件尚未指定，可在完成两个首发后端后调研，不阻塞当前架构设计。后续多后端实施按 P1–P4 分阶段推进，每阶段保持可构建和可回归。

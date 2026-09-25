@@ -28,7 +28,6 @@ final class DraftStore {
     }
     let directory: URL
     var url: URL { directory.appendingPathComponent("draft-v1.json") }
-    var legacyURL: URL { directory.appendingPathComponent("draft.rtfd") }
     private let queue = DispatchQueue(label: "NotesMate.DraftStore")
     private let lock = NSLock()
     private var generation: UInt64 = 0
@@ -57,24 +56,11 @@ final class DraftStore {
             } catch {
                 damagedSource = true
                 lastError = error
-                // Do not silently replace a damaged new draft with stale legacy content.
+                // Preserve the damaged source before a later draft write replaces it.
                 throw error
             }
         }
-        guard FileManager.default.fileExists(atPath: legacyURL.path) else { return nil }
-        let legacy: NSAttributedString
-        if let wrapper = try? FileWrapper(url: legacyURL, options: .immediate), wrapper.isDirectory,
-           let attributed = NSAttributedString(rtfdFileWrapper: wrapper, documentAttributes: nil) {
-            legacy = attributed
-        } else {
-            let data = try Data(contentsOf: legacyURL)
-            guard let attributed = NSAttributedString(rtfd: data, documentAttributes: nil) else { throw EditorDataError.invalidDocument }
-            legacy = attributed
-        }
-        let document = ClipboardCodec.importRich(legacy)
-        persist(document)
-        flush()
-        return document
+        return nil
     }
 
     func persist(_ document: EditorDocument, session: EditorSession? = nil) {
@@ -94,10 +80,6 @@ final class DraftStore {
                 let hasInputFormat = session.map { $0.insertionStyle != .plain } ?? false
                 if snapshot.isPristine && !hasInputFormat {
                     if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
-                    // Retire the legacy source so it cannot resurrect after a successful clear.
-                    if FileManager.default.fileExists(atPath: legacyURL.path) {
-                        try FileManager.default.moveItem(at: legacyURL, to: directory.appendingPathComponent("draft-legacy-\(UUID().uuidString).rtfd"))
-                    }
                 } else {
                     let typingIntent = snapshot.isPristine ? session.map(StoredSession.init) : nil
                     let data = try JSONEncoder().encode(Envelope(document: snapshot, session: typingIntent))

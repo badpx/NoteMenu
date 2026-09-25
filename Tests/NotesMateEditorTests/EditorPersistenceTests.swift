@@ -29,22 +29,6 @@ final class EditorPersistenceTests: XCTestCase {
         XCTAssertNil(try store.restore())
     }
 
-    func testLegacyMigrationAndNoResurrection_D05() throws {
-        let store = store()
-        try FileManager.default.createDirectory(at: store.directory, withIntermediateDirectories: true)
-        let source = NSAttributedString(string: "legacy", attributes: [.font: NSFont.boldSystemFont(ofSize: 14)])
-        let data = try XCTUnwrap(source.rtfd(from: NSRange(location: 0, length: source.length), documentAttributes: [:]))
-        try data.write(to: store.legacyURL)
-        let document = try XCTUnwrap(store.restore())
-        XCTAssertEqual(document.text, "legacy")
-        XCTAssertTrue(document.paragraphs[0].runs[0].style.marks.contains(.bold))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: store.url.path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: store.legacyURL.path))
-        store.persist(EditorDocument()); store.flush()
-        XCTAssertNil(try store.restore())
-        XCTAssertFalse(FileManager.default.fileExists(atPath: store.legacyURL.path))
-    }
-
     func testDamagedDraftPreservedAndWriteFailure_D06() throws {
         let store = store()
         try FileManager.default.createDirectory(at: store.directory, withIntermediateDirectories: true)
@@ -173,23 +157,5 @@ final class EditorPersistenceTests: XCTestCase {
         let emptyRestored = NoteEditorModel(drafts: store)
         XCTAssertTrue(emptyRestored.bridge.state.session.insertionStyle.marks.contains(.bold))
         XCTAssertEqual(emptyRestored.bridge.state.session.selection, NSRange(location: 0, length: 0))
-    }
-
-    func testLegacyRTFDPackageWithImage_D05() throws {
-        let store = store()
-        try FileManager.default.createDirectory(at: store.directory, withIntermediateDirectories: true)
-        let image = NSImage(size: NSSize(width: 20, height: 30))
-        image.lockFocus(); NSColor.purple.setFill(); NSRect(x: 0, y: 0, width: 20, height: 30).fill(); image.unlockFocus()
-        let rich = NSMutableAttributedString(string: "legacy image", attributes: [.font: NSFont.boldSystemFont(ofSize: 14)])
-        rich.append(TextKitRenderer.render(ClipboardCodec.imageFragment([image]), exchange: true))
-        let wrapper = try XCTUnwrap(rich.rtfdFileWrapper(from: NSRange(location: 0, length: rich.length), documentAttributes: [:]))
-        try wrapper.write(to: store.legacyURL, options: .atomic, originalContentsURL: nil)
-        let restored = try XCTUnwrap(store.restore())
-        XCTAssertEqual(restored.text, "legacy image\u{FFFC}")
-        XCTAssertTrue(restored.paragraphs[0].runs[0].style.marks.contains(.bold))
-        XCTAssertEqual(restored.assetOrder.count, 1)
-        XCTAssertNotNil(NSImage(data: try XCTUnwrap(restored.assets[restored.assetOrder[0]]).data))
-        XCTAssertEqual(try store.restore()?.assets, restored.assets)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: store.legacyURL.path))
     }
 }

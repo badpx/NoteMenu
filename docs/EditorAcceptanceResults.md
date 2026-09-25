@@ -6,6 +6,8 @@
 
 命名说明：当前工程、target、模块和新构建产物均使用 NotesMate。下文保留历史验收时真实使用的旧进程、测试笔记标题与构建产物路径；复现时请使用本节已更新的命令。
 
+草稿兼容清理说明：用户确认 2026-09-24 首次官网分发 v1.0 时已使用 JSON，发布前 RTFD 测试数据已清理。因此已移除 RTFD 草稿迁移及对应两项测试；下文 D05 和测试数量保留当时的验收事实，不代表当前功能或当前测试总数。JSON 草稿恢复与 RTFD 剪贴板交换仍保留。
+
 ## 1. 结论
 
 新组件已接入正式应用：语义文档统一管理段落、行内格式和图片；原生 TextKit 负责输入与显示；导出、草稿、工具栏和历史均走模型。
@@ -49,7 +51,7 @@ open build/NotesMateEditorHarness.app
 
 - [EditorCoreTests.swift](../Tests/NotesMateEditorTests/EditorCoreTests.swift)：触发子集、键盘矩阵、Unicode、列表编号、HTML 和 800 步固定种子随机命令不变量。
 - [EditorAppKitTests.swift](../Tests/NotesMateEditorTests/EditorAppKitTests.swift)：原生输入、IME API、历史、剪贴板、空末段布局、增量/全量投影一致性和长文档输入。
-- [EditorPersistenceTests.swift](../Tests/NotesMateEditorTests/EditorPersistenceTests.swift)：空格式草稿、generation、带图 RTFD 迁移、损坏源保留、保存失败与 revision 保护。
+- [EditorPersistenceTests.swift](../Tests/NotesMateEditorTests/EditorPersistenceTests.swift)：空格式草稿、generation、图片 JSON 草稿、损坏源保留、保存失败与 revision 保护；当时的 RTFD 迁移测试已退役。
 
 投影比较先经过 TextKit 字体 fallback 归一，再比较属性；附件比较数据、尺寸和模型 asset ID，不比较独立 NSTextAttachment 对象地址。随机测试覆盖状态不变量，不宣称覆盖所有随机 IME、鼠标或历史事件。
 
