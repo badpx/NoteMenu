@@ -20,9 +20,9 @@ final class EditorTipsTests: XCTestCase {
         }
         clock = end
     }
-    private func controller(duration: TimeInterval = EditorTipsController.Timing().duration) -> EditorTipsController {
+    private func controller() -> EditorTipsController {
         let tips = EditorTipsController(history: EditorTipHistory(defaults: defaults),
-            timing: .init(hover: 0.015, duration: duration),
+            timing: .init(hover: 0.015),
             enqueue: { [unowned self] delay, work in self.jobs.append((self.clock + delay, work)) })
         tips.canPresent = { _ in true }; tips.canSave = { true }
         return tips
@@ -48,8 +48,8 @@ final class EditorTipsTests: XCTestCase {
         let tips = controller()
         tips.activate(); tips.showFeature(.codeExit); tips.showFeature(.indent); pump()
         XCTAssertEqual(tips.visible, .codeExit)
-        pump(2); XCTAssertEqual(tips.visible, .indent)
-        pump(2); XCTAssertNil(tips.visible)
+        pump(3); XCTAssertEqual(tips.visible, .indent)
+        pump(3); XCTAssertNil(tips.visible)
         for _ in 0..<5 {
             tips.endSession(); tips.activate()
             tips.showFeature(.codeExit); tips.showFeature(.indent); pump()
@@ -70,7 +70,7 @@ final class EditorTipsTests: XCTestCase {
         tips.activate(); pump()
         XCTAssertEqual(tips.visible?.message, "欢迎使用 NotesMate")
         XCTAssertEqual(tips.visible?.icon, "info.circle")
-        pump(1.99); XCTAssertEqual(tips.visible?.id, "info.session.initial")
+        pump(2.99); XCTAssertEqual(tips.visible?.id, "info.session.initial")
         pump(0.02); XCTAssertEqual(tips.visible, .heading)
         tips.endSession(); tips.activate(); pump()
         XCTAssertNil(tips.visible)
@@ -96,25 +96,41 @@ final class EditorTipsTests: XCTestCase {
     func testInformationBypassesFeatureSettingsAndHasDistinctIconAndDuration() {
         defaults.set(false, forKey: EditorTipHistory.enabledKey)
         let tips = controller(); tips.activate(); tips.showFeature(.indent)
-        tips.showInformation(id: "notice", message: "目标目录已更新", duration: 1); pump()
+        tips.showInformation(id: "notice", message: "目标目录已更新", duration: .short); pump()
         XCTAssertEqual(tips.visible?.icon, "info.circle")
         XCTAssertEqual(EditorTip.codeExit.icon, "lightbulb")
-        pump(0.5); tips.showInformation(id: "notice", message: "目标目录已更新", duration: 10)
-        pump(0.51); XCTAssertNil(tips.visible, "Duplicate notices must not extend the deadline")
+        pump(0.5); tips.showInformation(id: "notice", message: "目标目录已更新", duration: .long)
+        pump(1.01); XCTAssertNil(tips.visible, "Duplicate notices must not extend the deadline")
         tips.showInformation(id: "notice", message: "再次更新"); pump()
         XCTAssertNotNil(tips.visible)
         XCTAssertFalse(tips.history.isLearned(.information(id: "notice", message: "再次更新")))
     }
-    func testInformationNoticeAppearsDuringSaveHoverAndExpiresAfterFourSeconds() {
+    func testShortMediumAndLongDurationPresets() {
+        let tips = controller(); tips.activate()
+        for (index, preset, seconds) in [
+            (0, EditorTipsController.DisplayDuration.short, 1.5),
+            (1, .medium, 3.0),
+            (2, .long, 5.0),
+        ] {
+            tips.showInformation(id: "preset.\(index)", message: "提示", duration: preset)
+            pump()
+            XCTAssertNotNil(tips.visible)
+            pump(seconds - 0.01)
+            XCTAssertNotNil(tips.visible, "\(preset) ended early")
+            pump(0.02)
+            XCTAssertNil(tips.visible, "\(preset) did not expire")
+        }
+    }
+    func testInformationNoticeAppearsDuringSaveHoverAndUsesDefaultMediumDuration() {
         let tips = controller()
         tips.activate()
         tips.saveHover(true)
         tips.setBlocked(true)
-        tips.showInformation(id: "permission", message: "授权提示", duration: 4)
+        tips.showInformation(id: "permission", message: "授权提示")
         tips.setBlocked(false)
         pump()
         XCTAssertEqual(tips.visible?.message, "授权提示")
-        pump(3.99)
+        pump(2.99)
         XCTAssertNotNil(tips.visible)
         pump(0.02)
         XCTAssertNil(tips.visible)
@@ -123,10 +139,10 @@ final class EditorTipsTests: XCTestCase {
         let tips = controller(); tips.activate()
         tips.showFeature(.codeExit); tips.showFeature(.indent); tips.showFeature(.selectAll); pump()
         XCTAssertEqual(tips.visible, .codeExit)
-        tips.learned(.indent); pump(2)
+        tips.learned(.indent); pump(3)
         XCTAssertEqual(tips.visible, .selectAll)
         tips.endSession(); tips.activate(); tips.showInformation(id: "new", message: "新提示"); pump()
-        pump(1.9); XCTAssertEqual(tips.visible?.id, "info.new")
+        pump(2.9); XCTAssertEqual(tips.visible?.id, "info.new")
         pump(0.11); XCTAssertNil(tips.visible)
     }
     func testSaveHoverPriorityAndOldExpiryCannotDismissNewNotice() {
@@ -134,6 +150,7 @@ final class EditorTipsTests: XCTestCase {
         pump(1); tips.saveHover(true); pump(0.02)
         XCTAssertEqual(tips.visible, .save)
         pump(1.1); XCTAssertEqual(tips.visible, .save)
+        pump(1); XCTAssertEqual(tips.visible, .save, "The old feature expiry must not dismiss the save hint")
         pump(1); XCTAssertNil(tips.visible)
         tips.saveHover(true); pump(0.02); XCTAssertNil(tips.visible)
         tips.saveHover(false); tips.saveHover(true); tips.saveHover(false); pump(0.02)
@@ -167,7 +184,7 @@ final class EditorTipsTests: XCTestCase {
         XCTAssertEqual(tips.visible, .codeExit)
         XCTAssertNil(model.bridge.hookContext.key)
     }
-    func testTwoSecondReadingTimeSurvivesInputIMESelectionAndLearning() {
+    func testMediumReadingTimeSurvivesInputIMESelectionAndLearning() {
         let tips = controller()
         let (model, view) = model(EditorDocument(paragraphs: [Paragraph(kind: .codeLine)]), tips: tips)
         model.setBlock(.body); model.setBlock(.codeLine)
@@ -185,7 +202,7 @@ final class EditorTipsTests: XCTestCase {
         model.bridge.select(NSRange(location: model.bridge.document.length, length: 0))
         model.bridge.withKeyPress(EditorKey(code: 125)) { view.moveDown(nil) }
         XCTAssertTrue(tips.history.isLearned(.codeExit))
-        pump(1.99 - clock); XCTAssertEqual(tips.visible, .codeExit)
+        pump(2.99 - clock); XCTAssertEqual(tips.visible, .codeExit)
         pump(0.02); XCTAssertNil(tips.visible)
         XCTAssertEqual(model.bridge.document.text, view.string)
     }
@@ -478,7 +495,7 @@ final class EditorTipsTests: XCTestCase {
         model.bridge.load(.plain("another note"))
         XCTAssertEqual(model.save(using: { _ in .success }), .success)
         XCTAssertEqual(created, 2)
-        pump(2.1); XCTAssertNil(tips.visible, "Creation does not bypass the once-per-launch feature limit")
+        pump(3.1); XCTAssertNil(tips.visible, "Creation does not bypass the once-per-launch feature limit")
         tips.endSession(); tips.activate(); pump()
         XCTAssertEqual(created, 2); XCTAssertNil(tips.visible)
     }

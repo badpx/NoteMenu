@@ -52,11 +52,15 @@ final class EditorTipHistory {
 /// Main-thread presentation only. FIFO notices share one slot; events never modify
 /// the current notice's deadline. Generation guards make cancelled callbacks harmless.
 final class EditorTipsController: ObservableObject {
+    enum DisplayDuration: TimeInterval {
+        case short = 1.5
+        case medium = 3
+        case long = 5
+    }
     struct Timing {
         var hover: TimeInterval = 0.15
-        var duration: TimeInterval = 2
     }
-    private struct Request { let tip: EditorTip; let duration: TimeInterval }
+    private struct Request { let tip: EditorTip; let duration: DisplayDuration }
     @Published private(set) var visible: EditorTip?
     var onSessionBegan: (() -> Void)?
     var canPresent: (EditorTip) -> Bool = { _ in false }
@@ -117,17 +121,17 @@ final class EditorTipsController: ObservableObject {
     }
     func editorChanged() { drain() }
 
-    func showFeature(_ tip: EditorTip) {
+    func showFeature(_ tip: EditorTip, duration: DisplayDuration = .medium) {
         guard tip.isFeature else { return }
-        request(tip, duration: timing.duration)
+        request(tip, duration: duration)
     }
-    func showInformation(id: String = UUID().uuidString, message: String, duration: TimeInterval? = nil) {
-        request(.information(id: id, message: message), duration: duration ?? timing.duration)
+    func showInformation(id: String = UUID().uuidString, message: String, duration: DisplayDuration = .medium) {
+        request(.information(id: id, message: message), duration: duration)
     }
-    private func request(_ tip: EditorTip, duration: TimeInterval) {
+    private func request(_ tip: EditorTip, duration: DisplayDuration) {
         guard sessionActive, history.canShow(tip), !tip.isFeature || !shownThisLaunch.contains(tip.id),
               visible?.id != tip.id, !queue.contains(where: { $0.tip.id == tip.id }) else { return }
-        queue.append(Request(tip: tip, duration: duration.isFinite && duration > 0 ? duration : timing.duration))
+        queue.append(Request(tip: tip, duration: duration))
         drain()
     }
     func removePending(_ tip: EditorTip) { queue.removeAll { $0.tip.id == tip.id } }
@@ -171,7 +175,7 @@ final class EditorTipsController: ObservableObject {
         guard active, !isBlocked, canSave() else { return }
         schedule(after: timing.hover) { [weak self] in
             guard let self, self.active, !self.isBlocked, self.saveHovered || self.saveFocused, self.canSave() else { return }
-            self.present(Request(tip: .save, duration: self.timing.duration))
+            self.present(Request(tip: .save, duration: .medium))
         }
     }
     private func schedule(after delay: TimeInterval, _ action: @escaping () -> Void) {
@@ -191,7 +195,7 @@ final class EditorTipsController: ObservableObject {
             self.visible = nil; self.expiry = nil
             self.drain()
         }
-        expiry = work; enqueue(request.duration, work)
+        expiry = work; enqueue(request.duration.rawValue, work)
     }
     private func cancelPresentation() {
         generation += 1

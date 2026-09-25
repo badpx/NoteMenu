@@ -508,8 +508,7 @@ struct NoteEditorView: View {
             case .unauthorized:
                 model.tips.showInformation(
                     id: "save.automation.permission",
-                    message: EditorLanguage.text("Allow NotesMate to control Notes in System Settings → Privacy & Security → Automation, then retry."),
-                    duration: 4
+                    message: EditorLanguage.text("Allow NotesMate to control Notes in System Settings → Privacy & Security → Automation, then retry.")
                 )
             case .failed(let message):
                 showError(message: message, unauthorized: false)
