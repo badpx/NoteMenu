@@ -1,6 +1,6 @@
 # 官网分发与 GitHub Release
 
-本项目使用 Xcode 的 `NotesMate` Scheme 构建 `NotesMate.app`。`scripts/build-release.sh` 将 Release archive 导出为 **Developer ID Application** 签名的 App，放入带有“应用程序”快捷方式的 DMG，对 DMG 签名、公证并装订票据。`scripts/publish-release.sh` 校验 DMG、版本和源码提交后，创建并推送对应的 Git tag，再创建 GitHub Release。脚本不会替你申请证书或创建公证凭据。
+本项目使用 Xcode 的 `NotesMate` Scheme 构建 `NotesMate.app`。`scripts/build-release.sh` 将 Release archive 导出为 **Developer ID Application** 签名的 App，制作带引导背景、左右图标和拖动箭头的 DMG，对 DMG 签名、公证并装订票据。打开 DMG 后将左侧 App 拖到右侧“应用程序”快捷方式即可安装。`scripts/publish-release.sh` 校验 DMG、版本和源码提交后，创建并推送对应的 Git tag，再创建 GitHub Release。脚本不会替你申请证书或创建公证凭据。
 
 ## 首次准备
 
@@ -48,7 +48,7 @@ dist/v1.0/SOURCE_COMMIT
 dist/v1.0/BUILD_NUMBER
 ```
 
-脚本会验证 App 的 Developer ID 签名、Team ID、Hardened Runtime 和安全时间戳，以及 DMG 的签名、完整性、公证结果、装订票据和 Gatekeeper 评估。公证可能需要较长时间；失败时会保留 `build/release-work.*` 的日志和提交结果供排查。`dist/` 和 `build/` 已被 Git 忽略。
+脚本会验证 App 的 Developer ID 签名、Team ID、Hardened Runtime 和安全时间戳，以及 DMG 的签名、完整性、公证结果、装订票据和 Gatekeeper 评估。DMG 布局由 `scripts/create-dmg.sh` 和 `scripts/create-dmg.applescript` 写入，背景源文件为 `assets/dmg-background.svg`；构建需要已登录的 macOS Finder 会话，并可能首次提示允许终端控制 Finder。公证可能需要较长时间；失败时会保留 `build/release-work.*` 的日志和提交结果供排查。`dist/` 和 `build/` 已被 Git 忽略。
 
 ## 发布
 

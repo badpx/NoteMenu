@@ -94,6 +94,8 @@ app="$mount_dir/NotesMate.app"
 [[ -d $app ]] || die 'DMG does not contain NotesMate.app at its root'
 [[ -L $mount_dir/Applications && $(readlink "$mount_dir/Applications") == /Applications ]] \
     || die 'DMG is missing the Applications shortcut'
+[[ -f $mount_dir/.background/background.png && -f $mount_dir/.DS_Store ]] \
+    || die 'DMG is missing the Finder installation layout'
 info="$app/Contents/Info.plist"
 app_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$info")"
 app_build="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$info")"

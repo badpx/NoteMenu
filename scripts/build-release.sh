@@ -37,7 +37,7 @@ notary_profile="${NOTARY_PROFILE:-}"
 [[ -n $identity ]] || die 'set DEVELOPER_ID_APPLICATION to your Developer ID Application identity'
 [[ -n $notary_profile ]] || die 'set NOTARY_PROFILE to a stored notarytool Keychain profile'
 
-for tool in git xcodebuild xcrun security codesign spctl ditto hdiutil plutil shasum tee; do require "$tool"; done
+for tool in git xcodebuild xcrun security codesign spctl ditto hdiutil plutil shasum tee osascript; do require "$tool"; done
 git -C "$repo_root" diff --quiet && git -C "$repo_root" diff --cached --quiet \
     || die 'commit tracked changes before building a release'
 [[ -z $(git -C "$repo_root" ls-files --others --exclude-standard) ]] \
@@ -110,15 +110,9 @@ grep -Eq 'flags=.*runtime' <<< "$signature" \
 grep -Fq 'Timestamp=' <<< "$signature" \
     || die 'exported app lacks a secure signing timestamp'
 
-image_root="$work_dir/dmg-root"
-mkdir -p "$image_root"
-ditto "$app" "$image_root/NotesMate.app"
-ln -s /Applications "$image_root/Applications"
 asset_name="NotesMate-v$version-macos.dmg"
 asset_path="$work_dir/$asset_name"
-hdiutil create -srcfolder "$image_root" -volname "NotesMate $version" \
-    -format UDZO -ov "$asset_path"
-hdiutil verify "$asset_path"
+"$repo_root/scripts/create-dmg.sh" "$app" "$version" "$asset_path"
 codesign --sign "$identity" --timestamp \
     --identifier com.badpxx.notesmate.disk-image "$asset_path"
 codesign --verify --strict --verbose=2 "$asset_path"

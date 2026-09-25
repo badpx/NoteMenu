@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="400" viewBox="0 0 720 400">
+  <defs>
+    <linearGradient id="paper" gradientUnits="userSpaceOnUse" x1="360" y1="0" x2="360" y2="400">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FAFAF8"/>
+    </linearGradient>
+    <linearGradient id="destination" gradientUnits="userSpaceOnUse" x1="550" y1="128" x2="550" y2="312">
+      <stop offset="0" stop-color="#FFFEFA"/>
+      <stop offset="1" stop-color="#FFF9E5"/>
+    </linearGradient>
+    <linearGradient id="arrow" gradientUnits="userSpaceOnUse" x1="245" y1="194" x2="475" y2="194">
+      <stop offset="0" stop-color="#FBD32E"/>
+      <stop offset="1" stop-color="#FCB826"/>
+    </linearGradient>
+    <filter id="card-shadow" x="-20%" y="-20%" width="140%" height="150%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="8"/>
+      <feOffset dy="4"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.035"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="720" height="400" fill="url(#paper)"/>
+
+  <!-- Existing product name. -->
+  <text x="360" y="74" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Helvetica Neue, sans-serif" font-size="24" font-weight="600" letter-spacing="-0.6" fill="#202020">NotesMate</text>
+  <rect x="344" y="90" width="32" height="4" rx="2" fill="#FBD32E"/>
+
+  <!-- Finder supplies the live icons at (170, 204) and (550, 204), size 112.
+       Equal 184pt surfaces include room below the icons for Finder labels. -->
+  <g filter="url(#card-shadow)">
+    <rect x="78" y="128" width="184" height="184" rx="22" fill="#FFFFFF" stroke="#EAEAE6"/>
+    <rect x="458" y="128" width="184" height="184" rx="22" fill="url(#destination)" stroke="#EDE3BF"/>
+  </g>
+
+  <!-- A broad, shallow drag gesture bridges the inner edges of both cards.
+       Full arrow bounds (245…475) stay centered at x=360; the head follows
+       the curve's end tangent, clear of Finder's live icon hit areas. -->
+  <path d="M245 194C299 132 419 132 473 194M453 193L473 194L475 174" fill="none" stroke="url(#arrow)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Static English installation guidance, shared by every DMG.
+       Baseline 224 optically centers the text on the cards' midpoint, y=220. -->
+  <text x="360" y="224" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Helvetica Neue, sans-serif" font-size="13" font-weight="500" fill="#70726E">Drag to install</text>
+</svg>
